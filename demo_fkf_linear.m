@@ -1,9 +1,8 @@
 % DEMO: Federated KF with two linear position sensors of different noise
-<<<<<<< Updated upstream
-=======
+
 % Version 1.0
 % Develop Branch
->>>>>>> Stashed changes
+
 clear; clc; rng(1);
 
 % ===== Model =====
