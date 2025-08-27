@@ -43,13 +43,8 @@ end
 % ===== Run =====
 Xhat1 = zeros(4,N); Xhat2 = zeros(4,N); Xf = zeros(4,N);
 for k=1:N
-    z1 = []; z2 = [];
-    if mod(k, sensorIntervals(1)) == 0
-        z1 = s1.measure(Xtrue(:,k));
-    end 
-    if mod(k, sensorIntervals(2)) == 0
-        z2 = s2.measure(Xtrue(:,k));
-    end
+    z1 = s1.measure(Xtrue(:,k), k);
+    z2 = s2.measure(Xtrue(:,k), k);
     fuseFlag  = mod(k, fusionInterval) == 0;
     fkf.step({z1, z2}, fuseFlag);         % update both locals + fuse
     Xhat1(:,k) = lkf1.x;
@@ -73,3 +68,35 @@ plot(Xhat2(1,:),Xhat2(2,:),'r-.');
 plot(Xf(1,:),Xf(2,:),'g-');
 legend('Truth','Local 1','Local 2','Fused');
 title('Federated KF (linear sensors)');
+
+%% ===== Plotting clarity =====
+t = (0:N-1) * dt;   % time vector
+fuseTimes = find(mod(1:N, fusionInterval) == 0); % fusion step indices
+fuseT = t(fuseTimes);  % fusion timestamps
+
+figure;
+
+% Position error in x
+subplot(2,1,1); hold on; grid on;
+plot(t, Xtrue(1,:) - Xhat1(1,:), 'b--');
+plot(t, Xtrue(1,:) - Xhat2(1,:), 'r-.');
+plot(t, Xtrue(1,:) - Xf(1,:),    'g-');
+% Mark fusion points
+plot(fuseT, Xtrue(1,fuseTimes) - Xf(1,fuseTimes), 'ko', 'MarkerFaceColor','k', 'MarkerSize',6);
+xlabel('Time [s]'); ylabel('x-error [m]');
+legend('Local 1','Local 2','Fused','Fusion points');
+title('Estimation Error in x-position');
+
+% Position error in y
+subplot(2,1,2); hold on; grid on;
+plot(t, Xtrue(2,:) - Xhat1(2,:), 'b--');
+plot(t, Xtrue(2,:) - Xhat2(2,:), 'r-.');
+plot(t, Xtrue(2,:) - Xf(2,:),    'g-');
+% Mark fusion points
+plot(fuseT, Xtrue(2,fuseTimes) - Xf(2,fuseTimes), 'ko', 'MarkerFaceColor','k', 'MarkerSize',6);
+xlabel('Time [s]'); ylabel('y-error [m]');
+legend('Local 1','Local 2','Fused','Fusion points');
+title('Estimation Error in y-position');
+
+sgtitle(sprintf('Fusion every %d steps | Sensor intervals = [%s]', ...
+    fusionInterval, num2str(sensorIntervals)));
