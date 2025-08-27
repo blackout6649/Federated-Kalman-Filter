@@ -4,11 +4,12 @@ classdef LinearSensor
         H
         R
         name
+        meas_flag
     end 
     methods 
-        function obj = LinearSensor(H, R ,name)
+        function obj = LinearSensor(H, R, meas_flag ,name)
             if nargin < 3, name = "LinearSensor"; end
-            obj.H = H; obj.R = R; obj.name = name;
+            obj.H = H; obj.R = R; obj.name = name; obj.meas_flag = meas_flag;
         end 
         function z = measure(obj, xRef)
             m = size(obj.H, 1);

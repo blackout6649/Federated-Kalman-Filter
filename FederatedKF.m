@@ -16,7 +16,7 @@ classdef FederatedKF < handle
             [x0, P0] = obj.locals(1).estimate();
             obj.x = x0; obj.P = P0;
         end
-        function step(obj, z_cell)
+        function step(obj, z_cell, fuseFlag)
             % z_cell: cell{N} of measurements for each local (or [] to skip)
             % 1) local predicts
             for i = 1:numel(obj.locals)
@@ -29,14 +29,16 @@ classdef FederatedKF < handle
                     obj.locals(i).update(zi);
                 end
             end
-            % 3) fusion
-            X = cell(1,numel(obj.locals));
-            P = cell(1,numel(obj.locals));
-            for i = 1:numel(obj.locals)
-                [xi, Pi] = obj.locals(i).estimate();
-                X{i} = xi; P{i} = Pi;
-            end
-            [obj.x, obj.P] = FusionCenter.fuse(X, P, obj.weights);
+            % 3) fusion (skip if haven't reached fusion step)
+            if fuseFlag
+                X = cell(1,numel(obj.locals));
+                P = cell(1,numel(obj.locals));
+                for i = 1:numel(obj.locals)
+                    [xi, Pi] = obj.locals(i).estimate();
+                    X{i} = xi; P{i} = Pi;
+                end
+                [obj.x, obj.P] = FusionCenter.fuse(X, P, obj.weights);
+            end 
         end
     end
 end

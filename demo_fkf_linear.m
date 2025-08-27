@@ -5,6 +5,10 @@
 
 clear; clc; rng(1);
 
+% ===== Frequencies =====
+sensorIntervals = [1, 5]; % Sensor 1 every 1 step, sensor 2 every 5 steps
+fusionInterval = 5;       % Fuse every 5 steps
+
 % ===== Model =====
 dt = 0.1;
 F  = [1 0 dt 0; 0 1 0 dt; 0 0 1 0; 0 0 0 1];
@@ -15,8 +19,8 @@ model = MotionModel(F,G,Q);
 
 % ===== Sensors (both linear position, different accuracies) =====
 H = [1 0 0 0; 0 1 0 0];
-R1 = (5^2)*eye(2);   s1 = LinearSensor(H,R1,"PosSensor-5m");
-R2 = (8^2)*eye(2);   s2 = LinearSensor(H,R2,"PosSensor-8m");
+R1 = (5^2)*eye(2);   s1 = LinearSensor(H,R1, sensorIntervals(1), "PosSensor-5m");
+R2 = (8^2)*eye(2);   s2 = LinearSensor(H,R2, sensorIntervals(2),"PosSensor-8m");
 
 % ===== Locals =====
 x0 = [0; 0; 1; 0.6]; P0 = diag([25 25 4 4]);
@@ -39,9 +43,15 @@ end
 % ===== Run =====
 Xhat1 = zeros(4,N); Xhat2 = zeros(4,N); Xf = zeros(4,N);
 for k=1:N
-    z1 = s1.measure(Xtrue(:,k));
-    z2 = s2.measure(Xtrue(:,k));
-    fkf.step({z1, z2});         % update both locals + fuse
+    z1 = []; z2 = [];
+    if mod(k, sensorIntervals(1)) == 0
+        z1 = s1.measure(Xtrue(:,k));
+    end 
+    if mod(k, sensorIntervals(2)) == 0
+        z2 = s2.measure(Xtrue(:,k));
+    end
+    fuseFlag  = mod(k, fusionInterval) == 0;
+    fkf.step({z1, z2}, fuseFlag);         % update both locals + fuse
     Xhat1(:,k) = lkf1.x;
     Xhat2(:,k) = lkf2.x;
     Xf(:,k)    = fkf.x;
