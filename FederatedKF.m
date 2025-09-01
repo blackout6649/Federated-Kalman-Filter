@@ -38,6 +38,11 @@ classdef FederatedKF < handle
                     X{i} = xi; P{i} = Pi;
                 end
                 [obj.x, obj.P] = FusionCenter.fuse(X, P, obj.weights);
+                % Reset 
+                for i = 1:numel(obj.locals)
+                    obj.locals(i).x = obj.x;
+                    obj.locals(i).P = obj.P;
+                end
             end 
         end
     end

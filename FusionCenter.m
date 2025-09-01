@@ -15,10 +15,9 @@ classdef FusionCenter
             for i = 1:N
                 Pi = covariances{i};
                 xi = estimates{i};
-                wi = weights(i);
                 Yi = Pi \ eye(n);       % robust inverse
-                Y = Y + wi * Yi;
-                y = y + wi * (Yi * xi);
+                Y = Y + Yi;
+                y = y + Yi * xi;
             end
             P_fused = Y \ eye(n);
             x_fused = P_fused * y;
