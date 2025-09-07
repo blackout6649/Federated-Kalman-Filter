@@ -16,7 +16,7 @@ F  = [1 0 dt 0; 0 1 0 dt; 0 0 1 0; 0 0 0 1];
 G  = [0.5*dt^2*eye(2); dt*eye(2)];
 q  = 0.05;
 Q  = q*eye(2);
-model = MotionModel(F,G,Q,weight);
+model = MotionModel(F,G,Q);
 
 % ===== Sensors (both linear position, different accuracies) =====
 H = [1 0 0 0; 0 1 0 0];
