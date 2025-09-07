@@ -7,8 +7,8 @@ classdef MotionModel
    end 
     
    methods
-       function obj = MotionModel(F, G, Q)
-           obj.F = F; obj.G = G; obj.Q = Q;
+       function obj = MotionModel(F, G, Q, weight)
+           obj.F = F; obj.G = G; obj.Q = Q * weight;
        end 
        function [xk1, Pk1] = predict(obj, x, P)
            xk1 = obj.F * x; % Time propogation of state estimation

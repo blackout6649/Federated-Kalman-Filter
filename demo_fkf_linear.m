@@ -6,10 +6,9 @@
 clear; clc; rng(1);
 
 % ===== Frequencies =====
-sensorIntervals = [1, 5]; % Sensor 1 every 1 step, sensor 2 every 5 steps
-fusionInterval = 10;       % Fuse every 5 steps
-N = length(sensorIntervals); % Number of sensors
-weight = 1 / N;
+sensorIntervals = [1, 1]; % Sensor 1 every 1 step, sensor 2 every 5 steps
+fusionInterval = 1;       % Fuse every 5 steps
+weight = length(sensorIntervals); % Number of sensors
 
 % ===== Model =====
 dt = 0.1;
@@ -17,7 +16,7 @@ F  = [1 0 dt 0; 0 1 0 dt; 0 0 1 0; 0 0 0 1];
 G  = [0.5*dt^2*eye(2); dt*eye(2)];
 q  = 0.05;
 Q  = q*eye(2);
-model = MotionModel(F,G,Q);
+model = MotionModel(F,G,Q,weight);
 
 % ===== Sensors (both linear position, different accuracies) =====
 H = [1 0 0 0; 0 1 0 0];
@@ -30,7 +29,7 @@ lkf1 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1");
 lkf2 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2");
 
 % ===== Federated manager =====
-fkf = FederatedKF([lkf1, lkf2], [], "FKF");
+fkf = FederatedKF([lkf1, lkf2], weight, "FKF");
 
 % ===== Truth sim =====
 T = 600; N = round(T/dt);

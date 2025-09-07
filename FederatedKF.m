@@ -2,16 +2,16 @@ classdef FederatedKF < handle
     % Orchestrates multiple LocalKalmanFilter objects + fusion center
     properties
         locals   % array of LocalKalmanFilter
-        weights  % fusion weights (optional)
+        weight  % fusion weights (optional)
         x        % fused state
         P        % fused covariance
         name
     end
     methods
-        function obj = FederatedKF(locals, weights, name)
-            if nargin < 2, weights = []; end
+        function obj = FederatedKF(locals, weight, name)
+            if nargin < 2, weight = []; end
             if nargin < 3, name = "FKF"; end
-            obj.locals = locals; obj.weights = weights; obj.name = name;
+            obj.locals = locals; obj.weight = weight; obj.name = name;
             % Initialize fused with first local
             [x0, P0] = obj.locals(1).estimate();
             obj.x = x0; obj.P = P0;
@@ -37,11 +37,11 @@ classdef FederatedKF < handle
                     [xi, Pi] = obj.locals(i).estimate();
                     X{i} = xi; P{i} = Pi;
                 end
-                [obj.x, obj.P] = FusionCenter.fuse(X, P, obj.weights);
+                [obj.x, obj.P] = FusionCenter.fuse(X, P);
                 % Reset 
                 for i = 1:numel(obj.locals)
                     obj.locals(i).x = obj.x;
-                    obj.locals(i).P = obj.P;
+                    obj.locals(i).P = obj.P * obj.weight;
                 end
             end 
         end
