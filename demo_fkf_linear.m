@@ -1,13 +1,13 @@
 % DEMO: Federated KF with two linear position sensors of different noise
 
-% Version 1.0
-% Develop Branch
+% Version 1.1
+
 
 clear; clc; rng(1); close all;
 
 % ===== Frequencies =====
-sensorIntervals = [1, 1]; % Sensor 1 every 1 step, sensor 2 every 5 steps
-fusionInterval = 10;       % Fuse every 10 steps
+sensorIntervals = [1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps
+fusionInterval = 10;       % Fuse every 1 steps
 weight = length(sensorIntervals); % Number of sensors
 
 % ===== Model =====
