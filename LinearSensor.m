@@ -16,7 +16,7 @@ classdef LinearSensor
                 m = size(obj.H,1);
                 z = obj.H * xRef + mvnrnd(zeros(m,1), obj.R)';
             else
-                z = [];
+                z = [NaN; NaN]; % Return NaN for plotting
             end
         end 
     end 

@@ -3,11 +3,11 @@
 % Version 1.0
 % Develop Branch
 
-clear; clc; rng(1);
+clear; clc; rng(1); close all;
 
 % ===== Frequencies =====
 sensorIntervals = [1, 1]; % Sensor 1 every 1 step, sensor 2 every 5 steps
-fusionInterval = 1;       % Fuse every 5 steps
+fusionInterval = 10;       % Fuse every 10 steps
 weight = length(sensorIntervals); % Number of sensors
 
 % ===== Model =====
@@ -28,6 +28,8 @@ x0 = [0; 0; 1; 0.6]; P0 = diag([25 25 4 4]);
 lkf1 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1");
 lkf2 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2");
 
+% ===== Centralized KF (baseline) =====
+ckf = CentralizedKF(model, x0, P0, {s1, s2}, "CKF");
 % ===== Federated manager =====
 fkf = FederatedKF([lkf1, lkf2], weight, "FKF");
 
@@ -42,33 +44,54 @@ for k=1:N
 end
 
 % ===== Run =====
-Xhat1 = zeros(4,N); Xhat2 = zeros(4,N); Xf = zeros(4,N);
+Xhat1 = zeros(4,N); Xhat2 = zeros(4,N); 
+XMeas1 = zeros(2,N); XMeas2 = zeros(2,N);
+Xf = zeros(4,N);
+Xc = zeros(4,N);
 for k=1:N
     z1 = s1.measure(Xtrue(:,k), k);
     z2 = s2.measure(Xtrue(:,k), k);
+    XMeas1(:,k) = z1; XMeas2(:,k) = z2;
     fuseFlag  = mod(k, fusionInterval) == 0;
     fkf.step({z1, z2}, fuseFlag);         % update both locals + fuse
     Xhat1(:,k) = lkf1.x;
     Xhat2(:,k) = lkf2.x;
     Xf(:,k)    = fkf.x;
+    % Centralized KF step (uses whatever measurements are available this step)
+    ckf.step({z1, z2});
+    Xc(:,k) = ckf.x;
 end
 
+%% Visual Aid
 % ===== Evaluation =====
 rmse1 = sqrt(mean((Xhat1(1:2,:)-Xtrue(1:2,:)).^2,2));
 rmse2 = sqrt(mean((Xhat2(1:2,:)-Xtrue(1:2,:)).^2,2));
 rmsef = sqrt(mean((Xf(1:2,:)-Xtrue(1:2,:)).^2,2));
+rmsec = sqrt(mean((Xc(1:2,:)-Xtrue(1:2,:)).^2,2));
+
 
 fprintf('Local 1 RMSE [x,y]: [%.2f, %.2f] m\n', rmse1(1), rmse1(2));
 fprintf('Local 2 RMSE [x,y]: [%.2f, %.2f] m\n', rmse2(1), rmse2(2));
 fprintf('Fused   RMSE [x,y]: [%.2f, %.2f] m\n', rmsef(1), rmsef(2));
+fprintf('Central RMSE [x,y]: [%.2f, %.2f] m\n', rmsec(1), rmsec(2));
 
 figure; hold on; grid on; axis equal;
-plot(Xtrue(1,:),Xtrue(2,:),'k-','LineWidth',1.5);
-plot(Xhat1(1,:),Xhat1(2,:),'b--');
-plot(Xhat2(1,:),Xhat2(2,:),'r-.');
-plot(Xf(1,:),Xf(2,:),'g-');
-legend('Truth','Local 1','Local 2','Fused');
-title('Federated KF (linear sensors)');
+
+% Truth 
+plot(Xtrue(1,:), Xtrue(2,:), 'k--', 'LineWidth', 1.5);
+
+% Measurements (dots)
+plot(XMeas1(1,:), XMeas1(2,:), 'b.', 'MarkerSize', 0.5); % Sensor 1 dots
+plot(XMeas2(1,:), XMeas2(2,:), 'r.', 'MarkerSize', 0.5); % Sensor 2 dots
+
+% Filter outputs (bold lines)
+plot(Xf(1,:),   Xf(2,:),   'g-',  'LineWidth', 3);
+plot(Xc(1,:),   Xc(2,:),   'y-',  'LineWidth', 3);
+
+legend('Truth','Sensor 1 meas','Sensor 2 meas','FKF','CKF');
+title('Federated vs Centralized KF');
+xlabel("X - Coordinate"); ylabel("Y - Coordinate")
+
 
 %% ===== Plotting clarity =====
 t = (0:N-1) * dt;   % time vector

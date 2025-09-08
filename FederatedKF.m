@@ -25,7 +25,7 @@ classdef FederatedKF < handle
             % 2) local updates (skip if measurement missing)
             for i = 1:numel(obj.locals)
                 zi = z_cell{i};
-                if ~isempty(zi)
+                if all(~isnan(zi))
                     obj.locals(i).update(zi);
                 end
             end
