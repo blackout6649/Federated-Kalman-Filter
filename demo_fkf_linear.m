@@ -1,6 +1,7 @@
 % DEMO: Federated KF with two linear position sensors of different noise
 
 % Version 1.1
+% Develop
 
 
 clear; clc; rng(1); close all;
