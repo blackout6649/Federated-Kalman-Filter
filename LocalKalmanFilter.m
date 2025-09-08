@@ -10,9 +10,9 @@ classdef LocalKalmanFilter < handle
         name
     end 
     methods 
-        function obj = LocalKalmanFilter(model, sensor, x0, P0, name)
-            obj.model = model; obj.sensor = sensor;
-            obj.x = x0; obj.P = P0;
+        function obj = LocalKalmanFilter(model, sensor, x0, P0, weight, name)
+            obj.model = model.FKFaug(weight); obj.sensor = sensor;
+            obj.x = x0; obj.P = P0 * weight;
             if nargin < 5, name = "LocalKF"; end
             obj.name = name;
         end 
