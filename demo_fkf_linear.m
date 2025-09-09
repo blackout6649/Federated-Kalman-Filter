@@ -8,7 +8,7 @@ clear; clc; rng(1); close all;
 
 % ===== Frequencies =====
 sensorIntervals = [1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps
-fusionInterval = 10;       % Fuse every 1 steps
+fusionInterval = 100;       % Fuse every 1 steps
 weight = length(sensorIntervals); % Number of sensors
 
 % ===== Model =====
@@ -19,10 +19,12 @@ q  = 0.05;
 Q  = q*eye(2);
 model = MotionModel(F,G,Q);
 
-% ===== Sensors (both linear position, different accuracies) =====
+% ===== Sensors (both linear position, different accuracies, with faults) =====
 H = [1 0 0 0; 0 1 0 0];
-R1 = (5^2)*eye(2);   s1 = LinearSensor(H,R1, sensorIntervals(1), "PosSensor-5m");
-R2 = (8^2)*eye(2);   s2 = LinearSensor(H,R2, sensorIntervals(2),"PosSensor-8m");
+R1 = (5^2)*eye(2);   
+s1 = LinearSensor(H,R1, sensorIntervals(1), "PosSensor-5m", 0.05, 100); % 5% chance, ±100m error
+R2 = (8^2)*eye(2);   
+s2 = LinearSensor(H,R2, sensorIntervals(2),"PosSensor-8m", 0.02, 50);   % 2% chance, ±50m error
 
 % ===== Locals =====
 x0 = [0; 0; 1; 0.6]; P0 = diag([25 25 4 4]);
