@@ -4,18 +4,20 @@ classdef LinearSensor
         H
         R
         measInterval
+        measDimension 
         name
         faultProb      % probability of fault per measurement
         faultMagnitude % scale of fault (offset or noise inflation)
     end
     methods
-        function obj = LinearSensor(H, R, measInterval, name, faultProb, faultMagnitude)
+        function obj = LinearSensor(H, R, measInterval, measDimension, name, faultProb, faultMagnitude)
             if nargin < 4, name = "LinearSensor"; end
             if nargin < 5, faultProb = 0; end
             if nargin < 6, faultMagnitude = 50; end
             obj.H = H; 
             obj.R = R; 
             obj.measInterval = measInterval; 
+            obj.measDimension = measDimension;
             obj.name = name;
             obj.faultProb = faultProb;
             obj.faultMagnitude = faultMagnitude;
