@@ -11,6 +11,7 @@ classdef FederatedKF < handle
         chi_square_threshold   % chi-square test thresholds for each local filter
         fault_flags            % current fault status for each local filter (0=fault, 1=normal)
         confidence_level       % confidence level for chi-square test (default 0.05)
+        method                 % Method of handling errors ( 1 = Assign last global (fused) value | 2 = Skip update | 3 = Assign last global (fused) value and increase cov)
         
         % Sliding window properties for enhanced detection
         window_size          % sliding window size (default 10)
@@ -19,17 +20,19 @@ classdef FederatedKF < handle
     end
     
     methods
-        function obj = FederatedKF(locals, weight, name, confidence_level, window_size) % Initialization
+        function obj = FederatedKF(locals, weight, name, confidence_level, window_size, method) % Initialization
             if nargin < 2, weight = []; end
             if nargin < 3, name = "FKF"; end
             if nargin < 4, confidence_level = 0.05; end  % 95% confidence
             if nargin < 5, window_size = 10; end
+            if nargin < 6, method = 1; end
             
             obj.locals = locals; 
             obj.weight = weight; 
             obj.name = name;
             obj.confidence_level = confidence_level;
             obj.window_size = window_size;
+            obj.method = method;
             
             % Initialize fault detection arrays
             num_locals = numel(obj.locals);
@@ -71,8 +74,17 @@ classdef FederatedKF < handle
                     if obj.fault_flags(i) == 1
                         obj.locals(i).update(zi);
                     else
-                        fprintf('Fault detected in local filter %d - skipping update\n', i);
-                        obj.locals(i).x = obj.x;
+                        switch obj.method
+                            case 1
+                                fprintf('Fault detected in local filter %d - assigning last global value\n', i);
+                                obj.locals(i).x = obj.x;
+                            case 2 
+                                fprintf('Fault detected in local filter %d - skipping update\n', i);
+                            case 3 
+                                fprintf('Fault detected in local filter %d - assigning last global value and increasing covariance\n', i);
+                                obj.locals(i).x = obj.x;
+                                obj.locals(i).P = obj.P * numel(obj.locals);
+                        end 
                     end
                 end
             end

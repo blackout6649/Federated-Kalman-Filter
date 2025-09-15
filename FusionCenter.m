@@ -4,7 +4,6 @@ classdef FusionCenter
         function [x_fused, P_fused] = fuse(estimates, covariances)
             % estimates: cell{N} of x_i
             % covariances: cell{N} of P_i
-            % weights: optional vector (default: all ones)
             N = numel(estimates); % Number of sensors
             n = numel(estimates{1});  % Number of states in for each sensor
             Y = zeros(n);             % Initialize fused information matrix

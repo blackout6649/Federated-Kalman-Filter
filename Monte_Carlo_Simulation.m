@@ -1,19 +1,20 @@
 % Monte Carlo Simulation: Fault Detection vs Traditional Filtering
-% Tests effectiveness of chi-square fault detection in federated KF
+% Tests effectiveness of chi-square fault detection in three federated KF scenarios
 clear; clc; close all;
+
 %% Simulation Parameters
-numRuns = 10;              % Number of Monte Carlo runs
-T = 100;                    % Simulation time
-dt = 0.1;                   % Time step
-N = round(T/dt);            % Number of time steps
+numRuns = 10;           % Number of Monte Carlo runs
+T = 600;                % Simulation time
+dt = 0.1;               % Time step
+N = round(T/dt);        % Number of time steps
 
 % Fault scenarios to test
 faultScenarios = [
-    0.00, 0.00;    % No faults (baseline)
-    0.02, 0.00;    % Light faults in sensor 1
-    0.05, 0.02;    % Moderate faults in both sensors
-    0.10, 0.05;    % Heavy faults
-    0.15, 0.10;    % Very heavy faults
+    0.00, 0.00;     % No faults (baseline)
+    0.02, 0.00;     % Light faults in sensor 1
+    0.05, 0.02;     % Moderate faults in both sensors
+    0.10, 0.05;     % Heavy faults
+    0.15, 0.10;     % Very heavy faults
 ];
 faultMagnitudes = 25:50:300; % Fault magnitudes to test
 
@@ -56,10 +57,14 @@ for magIdx = 1:length(faultMagnitudes)
             scenarioIdx, faultProb1, faultProb2);
         
         % Storage for this scenario
-        rmse_fkf_fd = zeros(numRuns, 2);      % FKF with fault detection
+        rmse_fkf_fd_1 = zeros(numRuns, 2);    % FKF with fault detection (Scenario 1)
+        rmse_fkf_fd_2 = zeros(numRuns, 2);    % FKF with fault detection (Scenario 2)
+        rmse_fkf_fd_3 = zeros(numRuns, 2);    % FKF with fault detection (Scenario 3)
         rmse_fkf_nfd = zeros(numRuns, 2);     % FKF without fault detection
         rmse_ckf_nfd = zeros(numRuns, 2);     % CKF without fault detection
         
+        % For simplicity, we assume detection stats are similar across scenarios 1-3
+        % as they use the same local filters. We track stats from scenario 1.
         detectionStats = struct();
         detectionStats.truePositives = zeros(numRuns, 2);
         detectionStats.falsePositives = zeros(numRuns, 2);
@@ -76,25 +81,32 @@ for magIdx = 1:length(faultMagnitudes)
             
             %% Create sensors with current fault parameters
             measDimension = 2;
-            s1_fd = LinearSensor(H, R1, sensorIntervals(1), measDimension, "PosSensor-5m", faultProb1, currentFaultMagnitude);
-            s2_fd = LinearSensor(H, R2, sensorIntervals(2), measDimension, "PosSensor-8m", faultProb2, currentFaultMagnitude);
-            
-            s1_nfd = LinearSensor(H, R1, sensorIntervals(1), measDimension, "PosSensor-5m", faultProb1, currentFaultMagnitude);
-            s2_nfd = LinearSensor(H, R2, sensorIntervals(2), measDimension, "PosSensor-8m", faultProb2, currentFaultMagnitude);
+            s1 = LinearSensor(H, R1, sensorIntervals(1), measDimension, "PosSensor-5m", faultProb1, currentFaultMagnitude);
+            s2 = LinearSensor(H, R2, sensorIntervals(2), measDimension, "PosSensor-8m", faultProb2, currentFaultMagnitude);
             
             %% Create filter instances
-            % FKF with fault detection
-            lkf1_fd = LocalKalmanFilter(model, s1_fd, x0, P0, weight, "LKF1_FD");
-            lkf2_fd = LocalKalmanFilter(model, s2_fd, x0, P0, weight, "LKF2_FD");
-            fkf_fd = FederatedKF([lkf1_fd, lkf2_fd], weight, "FKF_FD", 0.05, 10);
+            % FKF with fault detection (Scenario 1)
+            lkf1_fd1 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1_FD1");
+            lkf2_fd1 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2_FD1");
+            fkf_fd_1 = FederatedKF([lkf1_fd1, lkf2_fd1], weight, "FKF_FD_1", 0.05, 10, 1);
+            
+            % FKF with fault detection (Scenario 2)
+            lkf1_fd2 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1_FD2");
+            lkf2_fd2 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2_FD2");
+            fkf_fd_2 = FederatedKF([lkf1_fd2, lkf2_fd2], weight, "FKF_FD_2", 0.05, 10, 2);
+
+            % FKF with fault detection (Scenario 3)
+            lkf1_fd3 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1_FD3");
+            lkf2_fd3 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2_FD3");
+            fkf_fd_3 = FederatedKF([lkf1_fd3, lkf2_fd3], weight, "FKF_FD_3", 0.05, 10, 3);
             
             % FKF without fault detection (traditional)
-            lkf1_nfd = LocalKalmanFilter(model, s1_nfd, x0, P0, weight, "LKF1_NFD");
-            lkf2_nfd = LocalKalmanFilter(model, s2_nfd, x0, P0, weight, "LKF2_NFD");
+            lkf1_nfd = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1_NFD");
+            lkf2_nfd = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2_NFD");
             fkf_nfd = FederatedKFTraditional([lkf1_nfd, lkf2_nfd], weight, "FKF_NFD");
             
             % CKF without fault detection
-            ckf_nfd = CentralizedKF(model, x0, P0, {s1_nfd, s2_nfd}, "CKF_NFD");
+            ckf_nfd = CentralizedKF(model, x0, P0, {s1, s2}, "CKF_NFD");
             
             %% Generate truth trajectory
             Xtrue = zeros(4, N);
@@ -106,7 +118,9 @@ for magIdx = 1:length(faultMagnitudes)
             end
             
             %% Storage for this run
-            Xhat_fd = zeros(4, N);
+            Xhat_fd_1 = zeros(4, N);
+            Xhat_fd_2 = zeros(4, N);
+            Xhat_fd_3 = zeros(4, N);
             Xhat_nfd = zeros(4, N);
             Xhat_ckf = zeros(4, N);
             
@@ -141,29 +155,35 @@ for magIdx = 1:length(faultMagnitudes)
                 
                 fuseFlag = mod(k, fusionInterval) == 0;
                 
-                % FKF with fault detection
-                fkf_fd.step({z1, z2}, fuseFlag);
-                Xhat_fd(:, k) = fkf_fd.x;
+                % Step all filters
+                fkf_fd_1.step({z1, z2}, fuseFlag);
+                Xhat_fd_1(:, k) = fkf_fd_1.x;
                 
-                % Track fault detection
-                if ~any(isnan(z1))
-                    detectedFaults1(k) = 1 - fkf_fd.fault_flags(1);
-                end
-                if ~any(isnan(z2))
-                    detectedFaults2(k) = 1 - fkf_fd.fault_flags(2);
-                end
-                
-                % FKF without fault detection
+                fkf_fd_2.step({z1, z2}, fuseFlag);
+                Xhat_fd_2(:, k) = fkf_fd_2.x;
+
+                fkf_fd_3.step({z1, z2}, fuseFlag);
+                Xhat_fd_3(:, k) = fkf_fd_3.x;
+
                 fkf_nfd.step({z1, z2}, fuseFlag);
                 Xhat_nfd(:, k) = fkf_nfd.x;
                 
-                % CKF without fault detection
                 ckf_nfd.step({z1, z2});
                 Xhat_ckf(:, k) = ckf_nfd.x;
+
+                % Track fault detection (from FKF scenario 1 instance)
+                if ~any(isnan(z1))
+                    detectedFaults1(k) = 1 - fkf_fd_1.fault_flags(1);
+                end
+                if ~any(isnan(z2))
+                    detectedFaults2(k) = 1 - fkf_fd_1.fault_flags(2);
+                end
             end
             
             %% Calculate RMSEs
-            rmse_fkf_fd(run, :) = sqrt(mean((Xhat_fd(1:2, :) - Xtrue(1:2, :)).^2, 2));
+            rmse_fkf_fd_1(run, :) = sqrt(mean((Xhat_fd_1(1:2, :) - Xtrue(1:2, :)).^2, 2));
+            rmse_fkf_fd_2(run, :) = sqrt(mean((Xhat_fd_2(1:2, :) - Xtrue(1:2, :)).^2, 2));
+            rmse_fkf_fd_3(run, :) = sqrt(mean((Xhat_fd_3(1:2, :) - Xtrue(1:2, :)).^2, 2));
             rmse_fkf_nfd(run, :) = sqrt(mean((Xhat_nfd(1:2, :) - Xtrue(1:2, :)).^2, 2));
             rmse_ckf_nfd(run, :) = sqrt(mean((Xhat_ckf(1:2, :) - Xtrue(1:2, :)).^2, 2));
             
@@ -195,17 +215,24 @@ for magIdx = 1:length(faultMagnitudes)
         scenarioKey = sprintf('mag%d_prob%d', currentFaultMagnitude, scenarioIdx);
         results.(scenarioKey).faultProbs = [faultProb1, faultProb2];
         results.(scenarioKey).faultMagnitude = currentFaultMagnitude;
-        results.(scenarioKey).rmse_fkf_fd = rmse_fkf_fd;
+        
+        results.(scenarioKey).rmse_fkf_fd_1 = rmse_fkf_fd_1;
+        results.(scenarioKey).rmse_fkf_fd_2 = rmse_fkf_fd_2;
+        results.(scenarioKey).rmse_fkf_fd_3 = rmse_fkf_fd_3;
         results.(scenarioKey).rmse_fkf_nfd = rmse_fkf_nfd;
         results.(scenarioKey).rmse_ckf_nfd = rmse_ckf_nfd;
         results.(scenarioKey).detectionStats = detectionStats;
         
         %% Calculate summary statistics
-        results.(scenarioKey).mean_rmse_fkf_fd = mean(rmse_fkf_fd, 1);
+        results.(scenarioKey).mean_rmse_fkf_fd_1 = mean(rmse_fkf_fd_1, 1);
+        results.(scenarioKey).mean_rmse_fkf_fd_2 = mean(rmse_fkf_fd_2, 1);
+        results.(scenarioKey).mean_rmse_fkf_fd_3 = mean(rmse_fkf_fd_3, 1);
         results.(scenarioKey).mean_rmse_fkf_nfd = mean(rmse_fkf_nfd, 1);
         results.(scenarioKey).mean_rmse_ckf_nfd = mean(rmse_ckf_nfd, 1);
         
-        results.(scenarioKey).std_rmse_fkf_fd = std(rmse_fkf_fd, 1);
+        results.(scenarioKey).std_rmse_fkf_fd_1 = std(rmse_fkf_fd_1, 1);
+        results.(scenarioKey).std_rmse_fkf_fd_2 = std(rmse_fkf_fd_2, 1);
+        results.(scenarioKey).std_rmse_fkf_fd_3 = std(rmse_fkf_fd_3, 1);
         results.(scenarioKey).std_rmse_fkf_nfd = std(rmse_fkf_nfd, 1);
         results.(scenarioKey).std_rmse_ckf_nfd = std(rmse_ckf_nfd, 1);
         
@@ -228,7 +255,7 @@ for magIdx = 1:length(faultMagnitudes)
     end
 end
 
-%% Display Results
+%% Display Results (Abbreviated for clarity, full data is in 'results' struct)
 fprintf('\n=== MONTE CARLO SIMULATION RESULTS ===\n');
 fprintf('Number of runs per scenario: %d\n', numRuns);
 fprintf('Simulation time: %.1f s, Time step: %.2f s\n', T, dt);
@@ -241,54 +268,40 @@ for i = 1:length(fieldNames)
         currentResults.faultMagnitude, currentResults.faultProbs(1), currentResults.faultProbs(2));
     
     % RMSE comparison
-    fprintf('RMSE Results (mean ± std) [x, y]:\n');
-    fprintf('  FKF w/ Fault Detection: [%.2f±%.2f, %.2f±%.2f] m\n', ...
-        currentResults.mean_rmse_fkf_fd(1), currentResults.std_rmse_fkf_fd(1), ...
-        currentResults.mean_rmse_fkf_fd(2), currentResults.std_rmse_fkf_fd(2));
-    fprintf('  FKF Traditional:        [%.2f±%.2f, %.2f±%.2f] m\n', ...
-        currentResults.mean_rmse_fkf_nfd(1), currentResults.std_rmse_fkf_nfd(1), ...
-        currentResults.mean_rmse_fkf_nfd(2), currentResults.std_rmse_fkf_nfd(2));
-    fprintf('  CKF Traditional:        [%.2f±%.2f, %.2f±%.2f] m\n', ...
-        currentResults.mean_rmse_ckf_nfd(1), currentResults.std_rmse_ckf_nfd(1), ...
-        currentResults.mean_rmse_ckf_nfd(2), currentResults.std_rmse_ckf_nfd(2));
-    
-    % Improvement percentages
-    improvement_vs_fkf = (currentResults.mean_rmse_fkf_nfd - currentResults.mean_rmse_fkf_fd) ./ ...
-                         currentResults.mean_rmse_fkf_nfd * 100;
-    improvement_vs_ckf = (currentResults.mean_rmse_ckf_nfd - currentResults.mean_rmse_fkf_fd) ./ ...
-                         currentResults.mean_rmse_ckf_nfd * 100;
-    
-    fprintf('  Improvement vs FKF Traditional: [%.1f%%, %.1f%%]\n', improvement_vs_fkf(1), improvement_vs_fkf(2));
-    fprintf('  Improvement vs CKF Traditional: [%.1f%%, %.1f%%]\n', improvement_vs_ckf(1), improvement_vs_ckf(2));
-    
+    fprintf('RMSE Results (mean of x, y): \n');
+    fprintf('  FKF w/ FD (Scenario 1):  %.2f m\n', mean(currentResults.mean_rmse_fkf_fd_1));
+    fprintf('  FKF w/ FD (Scenario 2):  %.2f m\n', mean(currentResults.mean_rmse_fkf_fd_2));
+    fprintf('  FKF w/ FD (Scenario 3):  %.2f m\n', mean(currentResults.mean_rmse_fkf_fd_3));
+    fprintf('  FKF Traditional:         %.2f m\n', mean(currentResults.mean_rmse_fkf_nfd));
+    fprintf('  CKF Traditional:         %.2f m\n', mean(currentResults.mean_rmse_ckf_nfd));
+
     % Detection performance
     if currentResults.faultProbs(1) > 0 || currentResults.faultProbs(2) > 0
-        fprintf('Fault Detection Performance:\n');
-        for sensorIdx = 1:2
-            fprintf('  Sensor %d: Precision=%.2f, Recall=%.2f, Specificity=%.2f, F1=%.2f\n', ...
-                sensorIdx, currentResults.precision(sensorIdx), ...
-                currentResults.recall(sensorIdx), currentResults.specificity(sensorIdx), ...
-                currentResults.f1_score(sensorIdx));
-        end
+        fprintf('Fault Detection Performance (Sensor 1/Sensor 2):\n');
+        fprintf('  Recall:    [%.2f, %.2f]\n', currentResults.recall(1), currentResults.recall(2));
+        fprintf('  Precision: [%.2f, %.2f]\n', currentResults.precision(1), currentResults.precision(2));
     end
 end
 
-%% Visualization (updated to handle multiple magnitudes)
+%% Visualization
 createResultsPlots(results, faultMagnitudes);
 
-%% Helper function for traditional FKF (without fault detection)
+%% Helper function for plotting
 function createResultsPlots(results, faultMagnitudes)
-    % Create comprehensive results visualization
+    % Create comprehensive results visualization comparing all scenarios
     
     numMags = length(faultMagnitudes);
+    numFaultScenarios = 5; % As defined in the main script
     
     for sensorIdx = 1:2
-        figure('Position', [100, 100, 1200, 800]);
+        figure('Position', [100, 100, 1600, 900]);
         
-        for scenarioIdx = 1:5 % Assuming 5 scenarios as in the original code
+        for scenarioIdx = 1:numFaultScenarios
             
-            % Collect data for the current scenario across all magnitudes
-            mean_rmse_fd = zeros(1, numMags);
+            % Collect data for the current fault scenario across all magnitudes
+            mean_rmse_fd_1 = zeros(1, numMags);
+            mean_rmse_fd_2 = zeros(1, numMags);
+            mean_rmse_fd_3 = zeros(1, numMags);
             mean_rmse_nfd = zeros(1, numMags);
             mean_rmse_ckf = zeros(1, numMags);
             
@@ -296,23 +309,38 @@ function createResultsPlots(results, faultMagnitudes)
                 mag = faultMagnitudes(i);
                 scenarioKey = sprintf('mag%d_prob%d', mag, scenarioIdx);
                 if isfield(results, scenarioKey)
-                    mean_rmse_fd(i) = results.(scenarioKey).mean_rmse_fkf_fd(sensorIdx);
+                    mean_rmse_fd_1(i) = results.(scenarioKey).mean_rmse_fkf_fd_1(sensorIdx);
+                    mean_rmse_fd_2(i) = results.(scenarioKey).mean_rmse_fkf_fd_2(sensorIdx);
+                    mean_rmse_fd_3(i) = results.(scenarioKey).mean_rmse_fkf_fd_3(sensorIdx);
                     mean_rmse_nfd(i) = results.(scenarioKey).mean_rmse_fkf_nfd(sensorIdx);
                     mean_rmse_ckf(i) = results.(scenarioKey).mean_rmse_ckf_nfd(sensorIdx);
                 end
             end
             
             subplot(2, 3, scenarioIdx);
-            plot(faultMagnitudes, mean_rmse_fd, 'g-o', 'LineWidth', 2, 'MarkerSize', 8);
+            plot(faultMagnitudes, mean_rmse_fd_1, 'g-o', 'LineWidth', 2, 'MarkerSize', 8);
             hold on;
+            plot(faultMagnitudes, mean_rmse_fd_2, 'c-d', 'LineWidth', 2, 'MarkerSize', 8);
+            plot(faultMagnitudes, mean_rmse_fd_3, 'm-p', 'LineWidth', 2, 'MarkerSize', 8);
             plot(faultMagnitudes, mean_rmse_nfd, 'r-s', 'LineWidth', 2, 'MarkerSize', 8);
             plot(faultMagnitudes, mean_rmse_ckf, 'b-^', 'LineWidth', 2, 'MarkerSize', 8);
-            xlabel('Fault Magnitude'); ylabel(sprintf('RMSE [m] - Sensor %d', sensorIdx));
-            title(sprintf('Scenario %d: Fault Probs [%.2f, %.2f]', scenarioIdx, results.(sprintf('mag%d_prob%d', faultMagnitudes(1), scenarioIdx)).faultProbs(1), results.(sprintf('mag%d_prob%d', faultMagnitudes(1), scenarioIdx)).faultProbs(2)));
-            legend('FKF w/ Fault Detection', 'FKF Traditional', 'CKF Traditional', 'Location', 'best');
-            grid on;
             
+            xlabel('Fault Magnitude');
+            ylabel(sprintf('RMSE [m] - Axis %d', sensorIdx));
+            
+            % Get fault probabilities for the title
+            firstMagKey = sprintf('mag%d_prob%d', faultMagnitudes(1), scenarioIdx);
+            titleStr = sprintf('Fault Probs [%.2f, %.2f]', ...
+                results.(firstMagKey).faultProbs(1), results.(firstMagKey).faultProbs(2));
+            title(titleStr);
+            
+            if scenarioIdx == 1
+                legend('FKF - Assign last global estimate', 'FKF - Only skip update', 'FKF - Assign last global estimate and increase cov', ...
+                       'FKF Traditional', 'CKF Traditional', 'Location', [0.72, 0.18, 0.2, 0.2]);
+            end
+            grid on;
+            set(gca, 'FontSize', 12);
         end
-        sgtitle(sprintf('RMSE vs. Fault Magnitude for Sensor %d', sensorIdx));
+        sgtitle(sprintf('RMSE vs. Fault Magnitude for Sensor %d', sensorIdx), 'FontSize', 16, 'FontWeight', 'bold');
     end
 end

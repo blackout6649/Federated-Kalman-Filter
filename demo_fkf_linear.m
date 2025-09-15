@@ -34,8 +34,9 @@ lkf2 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2");
 
 % ===== Centralized KF (baseline) =====
 ckf = CentralizedKF(model, x0, P0, {s1, s2}, "CKF");
+
 % ===== Federated manager =====
-fkf = FederatedKF([lkf1, lkf2], weight, "FKF");
+fkf = FederatedKF([lkf1, lkf2], weight, "FKF", 0.05, 10, 3);
 
 % ===== Truth sim =====
 T = 600; N = round(T/dt);
