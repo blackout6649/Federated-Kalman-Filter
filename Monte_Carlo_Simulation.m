@@ -22,7 +22,7 @@ faultMagnitudes = 25:50:300; % Fault magnitudes to test
 results = struct();
 
 %% Fixed Parameters (same for all runs)
-sensorIntervals = [1, 1];
+sensorIntervals = [3, 13];
 fusionInterval = 10;
 weight = length(sensorIntervals);
 
