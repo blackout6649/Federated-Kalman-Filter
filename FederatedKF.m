@@ -27,21 +27,30 @@ classdef FederatedKF < handle
         calibration_duration % Number of steps for the calibration phase
         calibration_steps    % Counter for the current calibration step
         calibration_errors   % Stores accumulated squared errors for each local filter
+        
+        % --- MODIFIED: Added MSE property to reset after fusion ---
+        mse                  % Mean Squared Error for each local filter
+
+        % --- NEW: Reference weight property ---
+        reference_weight     % Manual weight of the reference filter (e.g., 0.6)
     end
     
     methods
-        % --- MODIFIED: Constructor ---
-        function obj = FederatedKF(locals, reference_filter, calibration_duration, name, confidence_level, window_size, method)
+        % --- MODIFIED: Constructor to accept reference_weight ---
+        function obj = FederatedKF(locals, reference_filter, calibration_duration, name, confidence_level, window_size, method, reference_weight)
             if nargin < 4, name = "CalibratingFKF"; end
             if nargin < 5, confidence_level = 0.05; end
             if nargin < 6, window_size = 10; end
             if nargin < 7, method = 1; end
+            % --- NEW: Set default reference weight ---
+            if nargin < 8, reference_weight = 0.6; end
             
             obj.locals = locals;
             obj.name = name;
             obj.confidence_level = confidence_level;
             obj.window_size = window_size;
             obj.method = method;
+            obj.reference_weight = reference_weight; % Store the new property
             
             num_locals = numel(obj.locals);
             
@@ -51,11 +60,11 @@ classdef FederatedKF < handle
             obj.calibration_duration = calibration_duration;
             obj.calibration_steps = 0;
             obj.calibration_errors = zeros(1, num_locals);
+            % --- MODIFIED: Initialize MSE and ISF arrays ---
+            obj.mse = zeros(1, num_locals); 
+            obj.ISF = ones(1, num_locals);
             fprintf('--- FKF "%s" initialized in CALIBRATION mode for %d steps. ---\n', obj.name, obj.calibration_duration);
             
-            % Initialize ISF with equal weighting (will be overwritten after calibration)
-            obj.ISF = ones(1, num_locals) * num_locals;
-
             % Initialize fault detection arrays
             obj.fault_flags = ones(1, num_locals);
             obj.chi_square_threshold = zeros(1, num_locals);
@@ -71,19 +80,22 @@ classdef FederatedKF < handle
             obj.x = x0;
             obj.P = P0;
         end
-
-
-       function step(obj, z_cell, z_ref, fuseFlag)
+        
+        % --- MODIFIED: Main step function ---
+        function step(obj, z_cell, z_ref, fuseFlag)
             % z_cell: cell{N} of measurements for local filters
-            % z_ref: measurement for the reference filter (only used in calibration)
+            % z_ref: measurement for the reference filter
             
             if strcmp(obj.mode, 'calibration')
                 obj.calibrationStep(z_cell, z_ref);
+                if fuseFlag
+                    obj.fuseFilters();
+                end
             else % operational mode
                 obj.operationalStep(z_cell, fuseFlag);
             end
-       end
-
+        end
+        
         % --- NEW: Step function for the calibration phase ---
         function calibrationStep(obj, z_cell, z_ref)
             % Predict all local filters and the reference filter
@@ -120,21 +132,71 @@ classdef FederatedKF < handle
             end
         end
         
+        % --- NEW: Centralized fusion function with learned weights ---
+        function fuseFilters(obj)
+            fprintf('Fusing filters...\n');
+            
+            % Recalculate ISFs before each fusion
+            obj.calculateISFs();
+            
+            valid_indices = find(obj.fault_flags == 1);
+            if isempty(valid_indices), warning('All local filters have faults - skipping fusion'); return; end
+            
+            num_valid = numel(valid_indices);
+            
+            % --- MODIFIED: Include reference filter in the fusion ---
+            X = cell(1, num_valid + 1); 
+            P = cell(1, num_valid + 1);
+            ISF_valid = zeros(1, num_valid + 1);
+            
+            % Add reference filter to the fusion set
+            [X{1}, P{1}] = obj.reference_filter.estimate();
+            % --- MODIFIED: Use the new reference_weight property ---
+            ISF_valid(1) = obj.reference_weight; 
+            
+            % Add local filters to the fusion set
+            for j = 1:num_valid
+                local_idx = valid_indices(j);
+                [X{j+1}, P{j+1}] = obj.locals(local_idx).estimate();
+                % Calculate the weight for this filter based on its ISF
+                ISF_valid(j+1) = obj.ISF(local_idx);
+            end
+            
+            % Normalize the remaining weights so they sum to (1 - reference_weight)
+            sum_of_other_ISF = sum(ISF_valid(2:end));
+            if sum_of_other_ISF > 1e-6
+                ISF_valid(2:end) = ISF_valid(2:end) * (1 - obj.reference_weight) / sum_of_other_ISF;
+            else
+                % All other filters have zero weight, distribute the remaining weight equally
+                ISF_valid(2:end) = (1 - obj.reference_weight) / num_valid;
+            end
+            
+            % Perform fusion using the new weights
+            [obj.x, obj.P] = FusionCenter.fuse_with_weights(X, P, ISF_valid);
+            
+            % --- NEW: Reset each local filter's state and covariance
+            N = numel(obj.locals);
+            for i = 1:N
+                obj.locals(i).x = obj.x;
+                % Reset the covariance based on the new fused covariance
+                % if obj.ISF(i) > 1e-6
+                %     obj.locals(i).P = obj.P * N / obj.ISF(i);
+                % else
+                %     obj.locals(i).P = obj.P * 1e12; 
+                % end
+                obj.locals(i).P = obj.P * N;
+            end
+            
+            % --- NEW: Reset MSEs after fusion
+            obj.calibration_errors = zeros(1, numel(obj.locals));
+            obj.calibration_steps = 0; % Reset the counter
+        end
+        
         % --- NEW: Finalize calibration and calculate ISFs ---
         function finalizeCalibration(obj)
             fprintf('--- CALIBRATION COMPLETE ---\n');
             
-            % Calculate Mean Squared Error (MSE) for each local filter
-            mse = obj.calibration_errors / obj.calibration_steps;
-            
-            % Calculate ISFs based on inverse MSE
-            inverse_mse = 1 ./ mse;
-            sum_inverse_mse = sum(inverse_mse);
-            
-            beta = inverse_mse / sum_inverse_mse;
-            
-            % According to FKF, the ISF (alpha) should be N*beta
-            obj.ISF = numel(obj.locals) * beta;
+            obj.calculateISFs();
             
             % Switch to operational mode
             obj.mode = 'operational';
@@ -147,10 +209,23 @@ classdef FederatedKF < handle
             fprintf('--------------------------------\n');
         end
         
+        % --- NEW: Helper function to calculate ISFs
+        function calculateISFs(obj)
+            % Calculate Mean Squared Error (MSE) for each local filter
+            obj.mse = obj.calibration_errors / obj.calibration_steps;
+            
+            % Calculate ISFs based on inverse MSE
+            inverse_mse = 1 ./ obj.mse;
+            sum_inverse_mse = sum(inverse_mse);
+            
+            beta = inverse_mse / sum_inverse_mse;
+            
+            % According to FKF, the ISF (alpha) should be N*beta
+            obj.ISF = numel(obj.locals) * beta;
+        end
+        
         % --- RENAMED: from 'step' to 'operationalStep' ---
         function operationalStep(obj, z_cell, fuseFlag)
-            % This function contains the original logic from your step method
-            
             % 1) local predicts
             for i = 1:numel(obj.locals)
                 obj.locals(i).predict();
@@ -171,51 +246,25 @@ classdef FederatedKF < handle
                             case 1
                                 fprintf('Fault detected in local filter %d - assigning last global value\n', i);
                                 obj.locals(i).x = obj.x;
-                            case 2 
+                            case 2
                                 fprintf('Fault detected in local filter %d - skipping update\n', i);
-                            case 3 
+                            case 3
                                 fprintf('Fault detected in local filter %d - assigning last global value and increasing covariance\n', i);
                                 obj.locals(i).x = obj.x;
                                 obj.locals(i).P = obj.P * numel(obj.locals);
-                        end 
+                        end
                     end
                 end
             end
             
             % 3) fusion
-            if fuseFlag
-                valid_indices = find(obj.fault_flags == 1);
-                if isempty(valid_indices), warning('All local filters have faults - skipping fusion'); return; end
-                
-                num_valid = numel(valid_indices);
-                X = cell(1, num_valid); P = cell(1, num_valid);
-                for j = 1:num_valid
-                    local_idx = valid_indices(j);
-                    [X{j}, P{j}] = obj.locals(local_idx).estimate();
-                end
-                
-                [obj.x, obj.P] = FusionCenter.fuse(X, P);
-                
-                % --- MODIFIED: Reset with learned ISFs ---
-                % The standard FKF reset is P_i = P_global / beta_i
-                % Since our ISF = N * beta_i, then beta_i = ISF_i / N
-                % So, P_i = P_global * N / ISF_i
-                N = numel(obj.locals);
-                for i = 1:N
-                    obj.locals(i).x = obj.x;
-                    if obj.ISF(i) > 1e-6 % Avoid division by zero
-                        obj.locals(i).P = obj.P * N / obj.ISF(i);
-                    else
-                        % Handle case of a sensor with zero trust
-                        obj.locals(i).P = obj.P * 1e12; % Assign very high uncertainty
-                    end
-                end
-            end 
+           if fuseFlag
+            obj.fuseFilters();
+           end
         end
-
         
         function detectFault(obj, local_idx, measurement)
-            % chi-square fault detection 
+            % chi-square fault detection
             
             local_filter = obj.locals(local_idx);
             
@@ -231,20 +280,20 @@ classdef FederatedKF < handle
             % Residual
             residual = measurement - z_pred;
             
-            % Residual covariance 
+            % Residual covariance
             residual_covar = H * P_pred * H' + R;
             
-            % Chi-square test statistic 
+            % Chi-square test statistic
             lambda = residual' / residual_covar * residual;
             
-            % Basic chi-square test 
+            % Basic chi-square test
             if lambda >= obj.chi_square_threshold(local_idx)
                 obj.fault_flags(local_idx) = 0;  % fault detected
             else
                 obj.fault_flags(local_idx) = 1;  % normal operation
             end
             
-            % Enhanced detection with sliding window averaging 
+            % Enhanced detection with sliding window averaging
             obj.updateSlidingWindow(local_idx, residual, residual_covar);
             obj.slidingWindowTest(local_idx);
         end
@@ -266,7 +315,7 @@ classdef FederatedKF < handle
         end
         
         function slidingWindowTest(obj, local_idx)
-            % Implements sliding window test 
+            % Implements sliding window test
             
             history = obj.residual_history{local_idx};
             covar_history = obj.covar_history{local_idx};
@@ -287,7 +336,7 @@ classdef FederatedKF < handle
             actual_covar = actual_covar / length(history);
             theoretical_covar = theoretical_covar / length(history);
             
-            % Calculate deviation ratio 
+            % Calculate deviation ratio
             eta = trace(theoretical_covar) / trace(actual_covar);
             
             % Enhanced fault detection criteria
