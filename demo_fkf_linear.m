@@ -7,7 +7,7 @@
 clear; clc; rng(1); close all;
 
 % ===== Frequencies =====
-sensorIntervals = [1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps
+sensorIntervals = [1, 1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps
 fusionInterval = 10;       % Fuse every 10 steps
 weight = length(sensorIntervals); % Number of sensors
 
@@ -22,21 +22,27 @@ model = MotionModel(F,G,Q);
 % ===== Sensors (both linear position, different accuracies, with faults) =====
 H = [1 0 0 0; 0 1 0 0];
 measDimension = 2;
+
 R1 = (5^2)*eye(2);   
 s1 = LinearSensor(H,R1, sensorIntervals(1), measDimension, "PosSensor-5m", 0.05, 100); % 5% chance, ±100m error
+
 R2 = (8^2)*eye(2);   
 s2 = LinearSensor(H,R2, sensorIntervals(2), measDimension, "PosSensor-8m", 0.02, 50);   % 2% chance, ±50m error
+
+Rref = (0.1^2)*eye(2);   
+sref = LinearSensor(H,Rref, sensorIntervals(3), measDimension, "PosSensor-8m", 0.001, 1);   % 0.1% chance, ±1m error
 
 % ===== Locals =====
 x0 = [0; 0; 1; 0.6]; P0 = diag([25 25 4 4]);
 lkf1 = LocalKalmanFilter(model, s1, x0, P0, weight, "LKF1");
 lkf2 = LocalKalmanFilter(model, s2, x0, P0, weight, "LKF2");
+lkfRef = LocalKalmanFilter(model, sref, x0, P0, weight, "LKFref");
 
 % ===== Centralized KF (baseline) =====
-ckf = CentralizedKF(model, x0, P0, {s1, s2}, "CKF");
+ckf = CentralizedKF(model, x0, P0, {s1, s2, sref}, "CKF");
 
 % ===== Federated manager =====
-fkf = FederatedKF([lkf1, lkf2], weight, "FKF", 0.05, 10, 3);
+fkf = FederatedKF([lkf1, lkf2], lkfRef, 1000, "Calib-FKF", 0.05, 10, 1);
 
 % ===== Truth sim =====
 T = 600; N = round(T/dt);
@@ -56,14 +62,17 @@ Xc = zeros(4,N);
 for k=1:N
     z1 = s1.measure(Xtrue(:,k), k);
     z2 = s2.measure(Xtrue(:,k), k);
-    XMeas1(:,k) = z1; XMeas2(:,k) = z2;
+    zref = sref.measure(Xtrue(:,k), k);
+    XMeas1(:,k) = z1; XMeas2(:,k) = z2; XMeasref(:,k) = zref;
+
     fuseFlag  = mod(k, fusionInterval) == 0;
-    fkf.step({z1, z2}, fuseFlag);         % update both locals + fuse
+    fkf.step({z1, z2}, zref, fuseFlag);         % update both locals + fuse
     Xhat1(:,k) = lkf1.x;
     Xhat2(:,k) = lkf2.x;
+    xhatRef(:,k) = lkfRef.x;
     Xf(:,k)    = fkf.x;
     % Centralized KF step (uses whatever measurements are available this step)
-    ckf.step({z1, z2});
+    ckf.step({z1, z2, zref});
     Xc(:,k) = ckf.x;
 end
 
@@ -71,12 +80,14 @@ end
 % ===== Evaluation =====
 rmse1 = sqrt(mean((Xhat1(1:2,:)-Xtrue(1:2,:)).^2,2));
 rmse2 = sqrt(mean((Xhat2(1:2,:)-Xtrue(1:2,:)).^2,2));
+rmseRef = sqrt(mean((xhatRef(1:2,:)-Xtrue(1:2,:)).^2,2));
 rmsef = sqrt(mean((Xf(1:2,:)-Xtrue(1:2,:)).^2,2));
 rmsec = sqrt(mean((Xc(1:2,:)-Xtrue(1:2,:)).^2,2));
 
 
 fprintf('Local 1 RMSE [x,y]: [%.2f, %.2f] m\n', rmse1(1), rmse1(2));
 fprintf('Local 2 RMSE [x,y]: [%.2f, %.2f] m\n', rmse2(1), rmse2(2));
+fprintf('Reference RMSE [x,y]: [%.2f, %.2f] m\n', rmseRef(1), rmseRef(2));
 fprintf('Fused   RMSE [x,y]: [%.2f, %.2f] m\n', rmsef(1), rmsef(2));
 fprintf('Central RMSE [x,y]: [%.2f, %.2f] m\n', rmsec(1), rmsec(2));
 
