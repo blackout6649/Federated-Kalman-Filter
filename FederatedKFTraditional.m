@@ -12,11 +12,12 @@ classdef FederatedKFTraditional < handle
             obj.x = x0; obj.P = P0;
         end
         function step(obj, z_cell, fuseFlag)
+            N = length(z_cell);
             % Traditional federated filter without fault detection
-            for i = 1:numel(obj.locals)
+            for i = 1:N
                 obj.locals(i).predict();
             end
-            for i = 1:numel(obj.locals)
+            for i = 1:N
                 zi = z_cell{i};
                 if all(~isnan(zi))
                     obj.locals(i).update(zi);  % No fault detection

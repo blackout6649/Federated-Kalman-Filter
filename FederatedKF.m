@@ -135,53 +135,78 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- FIXED: Proper federated fusion without destructive state reset ---
+        % --- FIXED: Autonomous fusion in operational mode ---
         function fuseFilters(obj)
             fprintf('Fusing filters...\n');
             
-            % Update ISFs if in operational mode
-            if strcmp(obj.mode, 'operational') && obj.operational_steps > 0
-                obj.updateISFs();
-            end
-            
             valid_indices = find(obj.fault_flags == 1);
             if isempty(valid_indices)
-                warning('All local filters have faults - using reference filter only');
-                [obj.x, obj.P] = obj.reference_filter.estimate();
+                warning('All local filters have faults - cannot perform fusion');
                 return;
             end
             
             num_valid = numel(valid_indices);
             
-            % --- FIXED: Separate fusion for reference and locals ---
-            % First, fuse local filters using ISF-based information sharing
-            if num_valid > 1
-                X_local = cell(1, num_valid);
-                P_local = cell(1, num_valid);
-                ISF_local = zeros(1, num_valid);
+            if strcmp(obj.mode, 'calibration')
+                % --- CALIBRATION MODE: Include reference filter ---
+                X = cell(1, num_valid + 1); 
+                P = cell(1, num_valid + 1);
+                ISF_valid = zeros(1, num_valid + 1);
                 
+                % Add reference filter to the fusion set
+                [X{1}, P{1}] = obj.reference_filter.estimate();
+                ISF_valid(1) = obj.reference_weight; 
+                
+                % Add local filters to the fusion set
                 for j = 1:num_valid
                     local_idx = valid_indices(j);
-                    [X_local{j}, P_local{j}] = obj.locals(local_idx).estimate();
-                    ISF_local(j) = obj.ISF(local_idx);
+                    [X{j+1}, P{j+1}] = obj.locals(local_idx).estimate();
+                    ISF_valid(j+1) = obj.ISF(local_idx);
                 end
                 
-                % Perform local fusion using proper ISF weighting
-                [x_local, P_local_fused] = obj.fuse_with_ISF(X_local, P_local, ISF_local);
+                % Normalize the local weights so they sum to (1 - reference_weight)
+                sum_of_other_ISF = sum(ISF_valid(2:end));
+                if sum_of_other_ISF > 1e-6
+                    ISF_valid(2:end) = ISF_valid(2:end) * (1 - obj.reference_weight) / sum_of_other_ISF;
+                else
+                    ISF_valid(2:end) = (1 - obj.reference_weight) / num_valid;
+                end
+                
+                % Perform fusion using the weights
+                [obj.x, obj.P] = FusionCenter.fuse_with_weights(X, P, ISF_valid);
+                
             else
-                % Only one valid local filter
-                [x_local, P_local_fused] = obj.locals(valid_indices(1)).estimate();
+                % --- OPERATIONAL MODE: Local filters only with normalized weights ---
+                X = cell(1, num_valid);
+                P = cell(1, num_valid);
+                normalized_weights = zeros(1, num_valid);
+                
+                % Get valid local filters and their ISFs
+                total_ISF = 0;
+                for j = 1:num_valid
+                    local_idx = valid_indices(j);
+                    [X{j}, P{j}] = obj.locals(local_idx).estimate();
+                    total_ISF = total_ISF + obj.ISF(local_idx);
+                end
+                
+                % Normalize weights to sum to 1
+                for j = 1:num_valid
+                    local_idx = valid_indices(j);
+                    normalized_weights(j) = obj.ISF(local_idx) / total_ISF;
+                end
+                
+                % Perform fusion with normalized weights
+                [obj.x, obj.P] = FusionCenter.fuse_with_weights(X, P, normalized_weights);
+                
+                fprintf('Operational fusion with normalized weights: ');
+                for j = 1:num_valid
+                    local_idx = valid_indices(j);
+                    fprintf('L%d:%.3f ', local_idx, normalized_weights(j));
+                end
+                fprintf('\n');
             end
             
-            % Now combine local fusion result with reference filter
-            [x_ref, P_ref] = obj.reference_filter.estimate();
-            X_combined = {x_ref, x_local};
-            P_combined = {P_ref, P_local_fused};
-            weights = [obj.reference_weight, 1 - obj.reference_weight];
-            
-            [obj.x, obj.P] = FusionCenter.fuse_with_weights(X_combined, P_combined, weights);
-            
-            % --- FIXED: Information-theoretic state sharing instead of reset ---
+            % Share information with local filters
             obj.shareInformation(valid_indices);
         end
         
@@ -274,20 +299,16 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- FIXED: Enhanced operational step with reference filter ---
+        % --- FIXED: Operational step without reference filter ---
         function operationalStep(obj, z_cell, z_ref, fuseFlag)
-            % 1) Predict all filters including reference
-            obj.reference_filter.predict();
+            % Note: z_ref is ignored in operational mode
+            
+            % 1) Predict local filters only
             for i = 1:numel(obj.locals)
                 obj.locals(i).predict();
             end
             
-            % 2) Update reference filter
-            if all(~isnan(z_ref))
-                obj.reference_filter.update(z_ref);
-            end
-            
-            % 3) Fault detection and local updates
+            % 2) Fault detection and local updates
             for i = 1:numel(obj.locals)
                 zi = z_cell{i};
                 if all(~isnan(zi))
@@ -297,12 +318,6 @@ classdef FederatedKF < handle
                     % Only update if no fault detected
                     if obj.fault_flags(i) == 1
                         obj.locals(i).update(zi);
-                        
-                        % --- FIXED: Track operational errors for ISF adaptation ---
-                        ref_state = obj.reference_filter.estimate();
-                        [local_state, ~] = obj.locals(i).estimate();
-                        error_vec = local_state - ref_state;
-                        obj.operational_errors(i) = obj.operational_errors(i) + (error_vec' * error_vec);
                     else
                         obj.handleFault(i);
                     end
@@ -311,7 +326,7 @@ classdef FederatedKF < handle
             
             obj.operational_steps = obj.operational_steps + 1;
             
-            % 4) Fusion
+            % 3) Fusion (local filters only)
             if fuseFlag
                 obj.fuseFilters();
             end
