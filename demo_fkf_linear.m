@@ -1,10 +1,10 @@
 % DEMO: Federated KF with two linear position sensors of different noise
 % Version 1.2 - Modified to stop reference sensor after calibration period
 % Develop
-clear; clc; rng(1); close all;
+clear; clc; rng(4); close all;
 
 % ===== Frequencies =====
-sensorIntervals = [1, 1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps, reference every 1 steps
+sensorIntervals = [1, 1, 1]; % Sensor 1 every 1 steps, sensor 2 every 1 steps, reference (last) every 1 steps
 fusionInterval = 10;       % Fuse every 10 steps
 weight = length(sensorIntervals); % Number of sensors
 calibrationPeriod = 1000;  % Same as calibrated FKF - stop reference after this
@@ -201,48 +201,289 @@ legend('Truth','Sensor 1 meas','Sensor 2 meas','Ref. Sensor meas','FKF (Calibrat
 title(sprintf('Federated vs Centralized KF (Ref. sensor stopped after step %d)', calibrationPeriod));
 xlabel("X - Coordinate"); ylabel("Y - Coordinate")
 
-%% ===== Plotting clarity =====
-t = (0:N-1) * dt;   % time vector
+%% ===== Improved Multi-Plot Visualization =====
+t = (0:N-1) * dt; % time vector
 fuseTimes = find(mod(1:N, fusionInterval) == 0); % fusion step indices
-fuseT = t(fuseTimes);  % fusion timestamps
+fuseT = t(fuseTimes); % fusion timestamps
 
-figure;
-% Position error in x
-subplot(2,1,1); hold on; grid on;
-plot(t, Xtrue(1,:) - Xhat1_calib(1,:), 'b--');
-plot(t, Xtrue(1,:) - Xhat2_calib(1,:), 'r-.');
-plot(t, Xtrue(1,:) - Xf_calib(1,:),    'g-', 'LineWidth', 2);
-plot(t, Xtrue(1,:) - Xf_trad(1,:),    'm-', 'LineWidth', 2);
-plot(t, Xtrue(1,:) - Xc(1,:),    'y-', 'LineWidth', 1.5);
-% Mark fusion points
-plot(fuseT, Xtrue(1,fuseTimes) - Xf_calib(1,fuseTimes), 'ko', 'MarkerFaceColor','g', 'MarkerSize',4);
-plot(fuseT, Xtrue(1,fuseTimes) - Xf_trad(1,fuseTimes), 'ks', 'MarkerFaceColor','m', 'MarkerSize',4);
+%% Plot 1: Local Filter Performance Comparison
+figure('Position', [100, 100, 1400, 600]);
+
+% X-position errors for local filters
+subplot(2,2,1); hold on; grid on;
+plot(t, Xtrue(1,:) - Xhat1_calib(1,:), 'b-', 'LineWidth', 1.5);
+plot(t, Xtrue(1,:) - Xhat2_calib(1,:), 'r-', 'LineWidth', 1.5);
 % Mark calibration end
 if calibrationPeriod <= N
     xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
-    text(t(calibrationPeriod), max(ylim)*0.8, 'Ref. Sensor Stops', 'Rotation', 90, 'FontSize', 10);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Cal. End', 'Rotation', 90, 'FontSize', 10);
 end
 xlabel('Time [s]'); ylabel('x-error [m]');
-legend('Local 1','Local 2','Fused (Calibrated)','Fused (Traditional)','Centralized KF','Fusion pts (Calib)','Fusion pts (Trad)', 'Location', 'best');
-title('Estimation Error in x-position');
+title('Local Filters: X-Position Error');
+legend('Local Filter 1', 'Local Filter 2', 'Location', 'best');
 
-% Position error in y
-subplot(2,1,2); hold on; grid on;
-plot(t, Xtrue(2,:) - Xhat1_calib(2,:), 'b--');
-plot(t, Xtrue(2,:) - Xhat2_calib(2,:), 'r-.');
-plot(t, Xtrue(2,:) - Xf_calib(2,:),    'g-', 'LineWidth', 2);
-plot(t, Xtrue(2,:) - Xf_trad(2,:),    'm-', 'LineWidth', 2);
-plot(t, Xtrue(2,:) - Xc(2,:),    'y-', 'LineWidth', 1.5);
-% Mark fusion points
-plot(fuseT, Xtrue(2,fuseTimes) - Xf_calib(2,fuseTimes), 'ko', 'MarkerFaceColor','g', 'MarkerSize',4);
-plot(fuseT, Xtrue(2,fuseTimes) - Xf_trad(2,fuseTimes), 'ks', 'MarkerFaceColor','m', 'MarkerSize',4);
+% Y-position errors for local filters
+subplot(2,2,2); hold on; grid on;
+plot(t, Xtrue(2,:) - Xhat1_calib(2,:), 'b-', 'LineWidth', 1.5);
+plot(t, Xtrue(2,:) - Xhat2_calib(2,:), 'r-', 'LineWidth', 1.5);
 % Mark calibration end
 if calibrationPeriod <= N
     xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
-    text(t(calibrationPeriod), max(ylim)*0.8, 'Ref. Sensor Stops', 'Rotation', 90, 'FontSize', 10);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Cal. End', 'Rotation', 90, 'FontSize', 10);
 end
 xlabel('Time [s]'); ylabel('y-error [m]');
-legend('Local 1','Local 2','Fused (Calibrated)','Fused (Traditional)','Centralized KF','Fusion pts (Calib)','Fusion pts (Trad)', 'Location', 'best');
-title('Estimation Error in y-position');
-sgtitle(sprintf('Fusion every %d steps | Sensor intervals = [%s] | Ref. stops at step %d', ...
-    fusionInterval, num2str(sensorIntervals), calibrationPeriod));
+title('Local Filters: Y-Position Error');
+legend('Local Filter 1', 'Local Filter 2', 'Location', 'best');
+
+% Combined position error magnitude
+subplot(2,2,3:4); hold on; grid on;
+error1_mag = sqrt((Xtrue(1,:) - Xhat1_calib(1,:)).^2 + (Xtrue(2,:) - Xhat2_calib(2,:)).^2);
+error2_mag = sqrt((Xtrue(1,:) - Xhat2_calib(1,:)).^2 + (Xtrue(2,:) - Xhat2_calib(2,:)).^2);
+plot(t, error1_mag, 'b-', 'LineWidth', 1.5);
+plot(t, error2_mag, 'r-', 'LineWidth', 1.5);
+% Mark calibration end
+if calibrationPeriod <= N
+    xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Calibration Ends', 'Rotation', 90, 'FontSize', 12);
+end
+xlabel('Time [s]'); ylabel('Position Error Magnitude [m]');
+title('Local Filters: Combined Position Error Magnitude');
+legend('Local Filter 1', 'Local Filter 2', 'Location', 'best');
+
+sgtitle('Local Filter Performance Analysis', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% Plot 2: Fusion Methods Comparison
+figure('Position', [200, 200, 1400, 600]);
+
+% X-position fusion comparison
+subplot(2,1,1); hold on; grid on;
+plot(t, Xtrue(1,:) - Xf_calib(1,:), 'g-', 'LineWidth', 2);
+plot(t, Xtrue(1,:) - Xf_trad(1,:), 'm-', 'LineWidth', 2);
+plot(t, Xtrue(1,:) - Xc(1,:), 'y-', 'LineWidth', 1.5);
+% Mark fusion points
+plot(fuseT, Xtrue(1,fuseTimes) - Xf_calib(1,fuseTimes), 'go', 'MarkerFaceColor','g', 'MarkerSize', 6);
+plot(fuseT, Xtrue(1,fuseTimes) - Xf_trad(1,fuseTimes), 'mo', 'MarkerFaceColor','m', 'MarkerSize', 6);
+% Mark calibration end
+if calibrationPeriod <= N
+    xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Calibration Ends', 'Rotation', 90, 'FontSize', 12);
+end
+xlabel('Time [s]'); ylabel('x-error [m]');
+title('Fusion Methods Comparison: X-Position Error');
+legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Cal. Fusion Pts', 'Trad. Fusion Pts', 'Location', 'best');
+
+% Y-position fusion comparison
+subplot(2,1,2); hold on; grid on;
+plot(t, Xtrue(2,:) - Xf_calib(2,:), 'g-', 'LineWidth', 2);
+plot(t, Xtrue(2,:) - Xf_trad(2,:), 'm-', 'LineWidth', 2);
+plot(t, Xtrue(2,:) - Xc(2,:), 'y-', 'LineWidth', 1.5);
+% Mark fusion points
+plot(fuseT, Xtrue(2,fuseTimes) - Xf_calib(2,fuseTimes), 'go', 'MarkerFaceColor','g', 'MarkerSize', 6);
+plot(fuseT, Xtrue(2,fuseTimes) - Xf_trad(2,fuseTimes), 'mo', 'MarkerFaceColor','m', 'MarkerSize', 6);
+% Mark calibration end
+if calibrationPeriod <= N
+    xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Calibration Ends', 'Rotation', 90, 'FontSize', 12);
+end
+xlabel('Time [s]'); ylabel('y-error [m]');
+title('Fusion Methods Comparison: Y-Position Error');
+legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Cal. Fusion Pts', 'Trad. Fusion Pts', 'Location', 'best');
+
+sgtitle(sprintf('Fusion Performance (Every %d steps, Sensor intervals [%s])', ...
+    fusionInterval, num2str(sensorIntervals)), 'FontSize', 14, 'FontWeight', 'bold');
+
+%% Plot 3: Error Magnitude and Statistics
+figure('Position', [300, 300, 1400, 800]);
+
+% Combined error magnitudes
+subplot(2,2,1); hold on; grid on;
+error_calib = sqrt((Xtrue(1,:) - Xf_calib(1,:)).^2 + (Xtrue(2,:) - Xf_calib(2,:)).^2);
+error_trad = sqrt((Xtrue(1,:) - Xf_trad(1,:)).^2 + (Xtrue(2,:) - Xf_trad(2,:)).^2);
+error_central = sqrt((Xtrue(1,:) - Xc(1,:)).^2 + (Xtrue(2,:) - Xc(2,:)).^2);
+
+plot(t, error_calib, 'g-', 'LineWidth', 2);
+plot(t, error_trad, 'm-', 'LineWidth', 2);
+plot(t, error_central, 'y-', 'LineWidth', 1.5);
+% Mark calibration end
+if calibrationPeriod <= N
+    xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Cal. End', 'Rotation', 90, 'FontSize', 10);
+end
+xlabel('Time [s]'); ylabel('Position Error [m]');
+title('Position Error Magnitude Comparison');
+legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Location', 'best');
+
+% Running RMSE
+subplot(2,2,2); hold on; grid on;
+window_size = 100; % RMSE calculation window
+rmse_calib = zeros(1, N);
+rmse_trad = zeros(1, N);
+rmse_central = zeros(1, N);
+
+for i = window_size:N
+    start_idx = max(1, i - window_size + 1);
+    rmse_calib(i) = sqrt(mean(error_calib(start_idx:i).^2));
+    rmse_trad(i) = sqrt(mean(error_trad(start_idx:i).^2));
+    rmse_central(i) = sqrt(mean(error_central(start_idx:i).^2));
+end
+
+plot(t(window_size:end), rmse_calib(window_size:end), 'g-', 'LineWidth', 2);
+plot(t(window_size:end), rmse_trad(window_size:end), 'm-', 'LineWidth', 2);
+plot(t(window_size:end), rmse_central(window_size:end), 'y-', 'LineWidth', 1.5);
+% Mark calibration end
+if calibrationPeriod <= N
+    xline(t(calibrationPeriod), 'k--', 'LineWidth', 2, 'Alpha', 0.7);
+    text(t(calibrationPeriod), max(ylim)*0.8, 'Cal. End', 'Rotation', 90, 'FontSize', 10);
+end
+xlabel('Time [s]'); ylabel('Running RMSE [m]');
+title(sprintf('Running RMSE (Window = %d steps)', window_size));
+legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Location', 'best');
+
+% Error distribution histograms
+subplot(2,2,3);
+edges = 0:0.5:max([error_calib, error_trad, error_central]) + 1;
+histogram(error_calib, edges, 'FaceColor', 'g', 'FaceAlpha', 0.7, 'Normalization', 'probability');
+hold on;
+histogram(error_trad, edges, 'FaceColor', 'm', 'FaceAlpha', 0.7, 'Normalization', 'probability');
+histogram(error_central, edges, 'FaceColor', 'y', 'FaceAlpha', 0.7, 'Normalization', 'probability');
+xlabel('Position Error [m]'); ylabel('Probability');
+title('Error Distribution');
+legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Location', 'best');
+grid on;
+
+% Summary statistics
+subplot(2,2,4);
+methods = {'Calibrated FKF', 'Traditional FKF', 'Centralized KF'};
+mean_errors = [mean(error_calib), mean(error_trad), mean(error_central)];
+std_errors = [std(error_calib), std(error_trad), std(error_central)];
+max_errors = [max(error_calib), max(error_trad), max(error_central)];
+
+x_pos = 1:3;
+bar_width = 0.25;
+
+b1 = bar(x_pos - bar_width, mean_errors, bar_width, 'FaceColor', [0.2, 0.6, 0.8]);
+hold on;
+b2 = bar(x_pos, std_errors, bar_width, 'FaceColor', [0.8, 0.4, 0.2]);
+b3 = bar(x_pos + bar_width, max_errors, bar_width, 'FaceColor', [0.6, 0.8, 0.2]);
+
+set(gca, 'XTick', x_pos, 'XTickLabel', methods);
+ylabel('Error [m]');
+title('Error Statistics Summary');
+legend('Mean', 'Std Dev', 'Max', 'Location', 'best');
+grid on;
+xtickangle(45);
+
+% Add values on top of bars
+for i = 1:3
+    text(i - bar_width, mean_errors(i) + 0.1, sprintf('%.2f', mean_errors(i)), ...
+        'HorizontalAlignment', 'center', 'FontSize', 9);
+    text(i, std_errors(i) + 0.1, sprintf('%.2f', std_errors(i)), ...
+        'HorizontalAlignment', 'center', 'FontSize', 9);
+    text(i + bar_width, max_errors(i) + 0.1, sprintf('%.2f', max_errors(i)), ...
+        'HorizontalAlignment', 'center', 'FontSize', 9);
+end
+
+sgtitle('Statistical Analysis of Filter Performance', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% Plot 4: Phase Analysis (Calibration vs Operational)
+if calibrationPeriod <= N
+    figure('Position', [400, 400, 1400, 600]);
+    
+    % Split data into calibration and operational phases
+    calib_indices = 1:calibrationPeriod;
+    oper_indices = (calibrationPeriod+1):N;
+    
+    % Calibration phase analysis
+    subplot(2,2,1); hold on; grid on;
+    plot(t(calib_indices), error_calib(calib_indices), 'g-', 'LineWidth', 2);
+    plot(t(calib_indices), error_trad(calib_indices), 'm-', 'LineWidth', 2);
+    plot(t(calib_indices), error_central(calib_indices), 'y-', 'LineWidth', 1.5);
+    xlabel('Time [s]'); ylabel('Position Error [m]');
+    title('Calibration Phase Performance');
+    legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Location', 'best');
+    
+    % Operational phase analysis
+    subplot(2,2,2); hold on; grid on;
+    if ~isempty(oper_indices)
+        plot(t(oper_indices), error_calib(oper_indices), 'g-', 'LineWidth', 2);
+        plot(t(oper_indices), error_trad(oper_indices), 'm-', 'LineWidth', 2);
+        plot(t(oper_indices), error_central(oper_indices), 'y-', 'LineWidth', 1.5);
+    end
+    xlabel('Time [s]'); ylabel('Position Error [m]');
+    title('Operational Phase Performance');
+    legend('Calibrated FKF', 'Traditional FKF', 'Centralized KF', 'Location', 'best');
+    
+    % Phase comparison statistics
+    subplot(2,2,3);
+    if ~isempty(oper_indices)
+        calib_stats = [mean(error_calib(calib_indices)), mean(error_trad(calib_indices)), mean(error_central(calib_indices))];
+        oper_stats = [mean(error_calib(oper_indices)), mean(error_trad(oper_indices)), mean(error_central(oper_indices))];
+        
+        x_pos = 1:3;
+        bar_width = 0.35;
+        
+        bar(x_pos - bar_width/2, calib_stats, bar_width, 'FaceColor', [0.7, 0.7, 0.9]);
+        hold on;
+        bar(x_pos + bar_width/2, oper_stats, bar_width, 'FaceColor', [0.9, 0.7, 0.7]);
+        
+        set(gca, 'XTick', x_pos, 'XTickLabel', methods);
+        ylabel('Mean Error [m]');
+        title('Phase Comparison: Mean Error');
+        legend('Calibration Phase', 'Operational Phase', 'Location', 'best');
+        grid on;
+        xtickangle(45);
+    end
+    
+    % Improvement analysis
+    subplot(2,2,4);
+    if ~isempty(oper_indices)
+        improvement_vs_trad = (mean(error_trad(oper_indices)) - mean(error_calib(oper_indices))) / mean(error_trad(oper_indices)) * 100;
+        improvement_vs_central = (mean(error_central(oper_indices)) - mean(error_calib(oper_indices))) / mean(error_central(oper_indices)) * 100;
+        
+        improvements = [improvement_vs_trad, improvement_vs_central];
+        comparison_methods = {'vs Traditional FKF', 'vs Centralized KF'};
+        
+        bar(improvements, 'FaceColor', [0.4, 0.8, 0.4]);
+        set(gca, 'XTickLabel', comparison_methods);
+        ylabel('Improvement [%]');
+        title('Calibrated FKF Performance Improvement');
+        grid on;
+        
+        % Add percentage labels
+        for i = 1:length(improvements)
+            text(i, improvements(i) + sign(improvements(i))*1, sprintf('%.1f%%', improvements(i)), ...
+                'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+        end
+    end
+    
+    sgtitle('Calibration vs Operational Phase Analysis', 'FontSize', 14, 'FontWeight', 'bold');
+end
+
+%% Display numerical summary
+fprintf('\n=== PERFORMANCE SUMMARY ===\n');
+fprintf('Overall Mean Position Error:\n');
+fprintf('  Calibrated FKF:  %.3f m\n', mean(error_calib));
+fprintf('  Traditional FKF: %.3f m\n', mean(error_trad));
+fprintf('  Centralized KF:  %.3f m\n', mean(error_central));
+
+fprintf('\nOverall RMSE:\n');
+fprintf('  Calibrated FKF:  %.3f m\n', sqrt(mean(error_calib.^2)));
+fprintf('  Traditional FKF: %.3f m\n', sqrt(mean(error_trad.^2)));
+fprintf('  Centralized KF:  %.3f m\n', sqrt(mean(error_central.^2)));
+
+if calibrationPeriod <= N && ~isempty(oper_indices)
+    fprintf('\nOperational Phase Performance:\n');
+    fprintf('  Calibrated FKF:  %.3f m (RMSE: %.3f m)\n', ...
+        mean(error_calib(oper_indices)), sqrt(mean(error_calib(oper_indices).^2)));
+    fprintf('  Traditional FKF: %.3f m (RMSE: %.3f m)\n', ...
+        mean(error_trad(oper_indices)), sqrt(mean(error_trad(oper_indices).^2)));
+    fprintf('  Centralized KF:  %.3f m (RMSE: %.3f m)\n', ...
+        mean(error_central(oper_indices)), sqrt(mean(error_central(oper_indices).^2)));
+    
+    improvement_vs_trad = (mean(error_trad(oper_indices)) - mean(error_calib(oper_indices))) / mean(error_trad(oper_indices)) * 100;
+    improvement_vs_central = (mean(error_central(oper_indices)) - mean(error_calib(oper_indices))) / mean(error_central(oper_indices)) * 100;
+    
+    fprintf('\nImprovement in Operational Phase:\n');
+    fprintf('  vs Traditional FKF: %.1f%%\n', improvement_vs_trad);
+    fprintf('  vs Centralized KF:  %.1f%%\n', improvement_vs_central);
+end

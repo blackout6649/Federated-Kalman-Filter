@@ -21,29 +21,28 @@ classdef FederatedKF < handle
         residual_history
         covar_history
         
-        % --- FIXED: Calibration Properties ---
+        % --- Calibration Properties ---
         mode                 % 'calibration' or 'operational'
         reference_filter     % The trusted "System B" filter
         calibration_duration % Number of steps for the calibration phase
         calibration_steps    % Counter for the current calibration step
         calibration_errors   % Stores accumulated squared errors for each local filter
         
-        % --- FIXED: Separate MSE tracking for operational phase ---
+        % --- Separate MSE tracking for operational phase ---
         operational_errors   % Tracks errors during operational phase for ISF updates
         operational_steps    % Counter for operational phase steps
 
-        % --- FIXED: Adjusted reference weight property ---
+        % --- Adjusted reference weight property ---
         reference_weight     % Manual weight of the reference filter (reduced default)
     end
     
     methods
-        % --- FIXED: Constructor with better defaults ---
+        % --- Constructor with better defaults ---
         function obj = FederatedKF(locals, reference_filter, calibration_duration, name, confidence_level, window_size, method, reference_weight)
             if nargin < 4, name = "CalibratingFKF"; end
             if nargin < 5, confidence_level = 0.05; end
             if nargin < 6, window_size = 10; end
             if nargin < 7, method = 1; end
-            % --- FIXED: Reduced default reference weight ---
             if nargin < 8, reference_weight = 0.3; end
             
             obj.locals = locals;
@@ -55,18 +54,18 @@ classdef FederatedKF < handle
             
             num_locals = numel(obj.locals);
             
-            % --- FIXED: Initialize Calibration ---
+            % --- Initialize Calibration ---
             obj.mode = 'calibration';
             obj.reference_filter = reference_filter;
             obj.calibration_duration = calibration_duration;
             obj.calibration_steps = 0;
             obj.calibration_errors = zeros(1, num_locals);
             
-            % --- FIXED: Initialize operational tracking ---
+            % --- Initialize operational tracking ---
             obj.operational_errors = zeros(1, num_locals);
             obj.operational_steps = 0;
             
-            % --- FIXED: Initialize ISF to equal sharing (sum to N) ---
+            % --- Initialize ISF to equal sharing (sum to N) ---
             obj.ISF = ones(1, num_locals);
             
             fprintf('--- FKF "%s" initialized in CALIBRATION mode for %d steps. ---\n', obj.name, obj.calibration_duration);
@@ -135,7 +134,7 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- FIXED: Autonomous fusion in operational mode ---
+        % --- Filter fusion ---
         function fuseFilters(obj)
             fprintf('Fusing filters...\n');
             
@@ -173,7 +172,7 @@ classdef FederatedKF < handle
                 end
                 
                 % Perform fusion using the weights
-                [obj.x, obj.P] = FusionCenter.fuse_with_weights(X, P, ISF_valid);
+                [obj.x, obj.P] = FusionCenter.information_fusion(X, P, ISF_valid);
                 
             else
                 % --- OPERATIONAL MODE: Local filters only with normalized weights ---
@@ -196,7 +195,7 @@ classdef FederatedKF < handle
                 end
                 
                 % Perform fusion with normalized weights
-                [obj.x, obj.P] = FusionCenter.fuse_with_weights(X, P, normalized_weights);
+                [obj.x, obj.P] = FusionCenter.information_fusion(X, P, normalized_weights);
                 
                 fprintf('Operational fusion with normalized weights: ');
                 for j = 1:num_valid
@@ -210,7 +209,7 @@ classdef FederatedKF < handle
             obj.shareInformation(valid_indices);
         end
         
-        % --- NEW: Information sharing instead of destructive reset ---
+        % --- Information sharing reset ---
         function shareInformation(obj, valid_indices)
             % Share global information with local filters using information form
             global_info = inv(obj.P);
@@ -246,7 +245,7 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- FIXED: Proper ISF calculation ---
+        % --- Proper ISF calculation ---
         function finalizeCalibration(obj)
             fprintf('--- CALIBRATION COMPLETE ---\n');
             
@@ -266,7 +265,7 @@ classdef FederatedKF < handle
             fprintf('--------------------------------\n');
         end
         
-        % --- FIXED: Correct ISF calculation ---
+        % --- Correct ISF calculation ---
         function calculateISFs(obj)
             % Calculate Mean Squared Error (MSE) for each local filter
             if obj.calibration_steps > 0
@@ -282,7 +281,7 @@ classdef FederatedKF < handle
             inverse_mse = 1 ./ mse;
             beta = inverse_mse / sum(inverse_mse);
             
-            % --- FIXED: ISFs should sum to N, representing information content ---
+            % --- ISFs should sum to N, representing information content ---
             obj.ISF = numel(obj.locals) * beta;
             
             % Ensure ISFs are within reasonable bounds
@@ -290,16 +289,16 @@ classdef FederatedKF < handle
             obj.ISF = min(obj.ISF, 2 * numel(obj.locals));  % Maximum ISF
         end
         
-        % --- NEW: Update ISFs during operational phase ---
-        function updateISFs(obj)
-            % Periodically update ISFs based on recent performance
-            if mod(obj.operational_steps, 50) == 0  % Update every 50 steps
-                obj.calculateISFs();
-                fprintf('Updated ISFs at operational step %d\n', obj.operational_steps);
-            end
-        end
-        
-        % --- FIXED: Operational step without reference filter ---
+        % % --- Update ISFs during operational phase ---
+        % function updateISFs(obj)
+        %     % Periodically update ISFs based on recent performance
+        %     if mod(obj.operational_steps, 50) == 0  % Update every 50 steps
+        %         obj.calculateISFs();
+        %         fprintf('Updated ISFs at operational step %d\n', obj.operational_steps);
+        %     end
+        % end
+        % 
+        % --- Operational step without reference filter ---
         function operationalStep(obj, z_cell, z_ref, fuseFlag)
             % Note: z_ref is ignored in operational mode
             
@@ -332,7 +331,7 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- NEW: Centralized fault handling ---
+        % --- Centralized fault handling ---
         function handleFault(obj, i)
             switch obj.method
                 case 1
@@ -348,7 +347,7 @@ classdef FederatedKF < handle
         end
         
         function detectFault(obj, local_idx, measurement)
-            % --- FIXED: Improved fault detection with clear precedence ---
+            % --- Improved fault detection with clear precedence ---
             
             local_filter = obj.locals(local_idx);
             
@@ -376,7 +375,7 @@ classdef FederatedKF < handle
                 sliding_window_fault = obj.slidingWindowTest(local_idx);
             end
             
-            % --- FIXED: Clear fault detection logic ---
+            % ---  Clear fault detection logic ---
             if chi_square_fault || sliding_window_fault
                 obj.fault_flags(local_idx) = 0;  % fault detected
             else
@@ -398,7 +397,7 @@ classdef FederatedKF < handle
             end
         end
         
-        % --- FIXED: Sliding window test with clear return value ---
+        % --- Sliding window test with clear return value ---
         function fault_detected = slidingWindowTest(obj, local_idx)
             history = obj.residual_history{local_idx};
             covar_history = obj.covar_history{local_idx};
@@ -423,7 +422,7 @@ classdef FederatedKF < handle
             % Calculate deviation ratio
             eta = trace(theoretical_covar) / trace(actual_covar);
             
-            % --- FIXED: Complete coverage of eta range ---
+            % ---  Complete coverage of eta range ---
             if eta > 2.5 || eta < 0.4
                 fault_detected = true;
             else
@@ -447,34 +446,5 @@ classdef FederatedKF < handle
             fprintf('\n');
         end
         
-        % --- NEW: ISF-based fusion method ---
-        function [x_fused, P_fused] = fuse_with_ISF(obj, X, P, ISF)
-            % Fuses estimates using Information Sharing Factors
-            % ISF represents the information content of each filter
-            
-            N = length(X);
-            if N == 1
-                x_fused = X{1};
-                P_fused = P{1};
-                return;
-            end
-            
-            % Convert to information form
-            info_sum = zeros(size(P{1}));
-            info_vec_sum = zeros(size(X{1}));
-            
-            for i = 1:N
-                % Information matrix and vector
-                P_inv = inv(P{i});
-                info_contribution = (ISF(i) / N) * P_inv;  % Scale by ISF
-                
-                info_sum = info_sum + info_contribution;
-                info_vec_sum = info_vec_sum + info_contribution * X{i};
-            end
-            
-            % Convert back to covariance form
-            P_fused = inv(info_sum);
-            x_fused = P_fused * info_vec_sum;
-        end
     end
 end

@@ -1,7 +1,7 @@
 classdef FusionCenter
     % Information-form track-to-track fusion assuming independence
     methods (Static)
-        function [x_fused, P_fused] = fuse_with_weights(X, P, weights)
+        function [x_fused, P_fused] = information_fusion(X, P, weights)
         % Implementation of fusion with custom weights
         % X: cell array of states
         % P: cell array of covariances
