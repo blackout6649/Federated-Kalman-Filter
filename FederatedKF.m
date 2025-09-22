@@ -65,8 +65,9 @@ classdef FederatedKF < handle
             obj.operational_errors = zeros(1, num_locals);
             obj.operational_steps = 0;
             
-            % --- Initialize ISF to equal sharing (sum to N) ---
-            obj.ISF = ones(1, num_locals);
+            % --- Initialize ISF ---
+            obj.ISF = zeros(1, num_locals);
+ 
             
             fprintf('--- FKF "%s" initialized in CALIBRATION mode for %d steps. ---\n', obj.name, obj.calibration_duration);
             
@@ -173,12 +174,11 @@ classdef FederatedKF < handle
                 
                 % Perform fusion using the weights
                 [obj.x, obj.P] = FusionCenter.information_fusion(X, P, ISF_valid);
-                
+ 
             else
                 % --- OPERATIONAL MODE: Local filters only with normalized weights ---
                 X = cell(1, num_valid);
                 P = cell(1, num_valid);
-                normalized_weights = zeros(1, num_valid);
                 
                 % Get valid local filters and their ISFs
                 total_ISF = 0;
@@ -196,54 +196,59 @@ classdef FederatedKF < handle
                 
                 % Perform fusion with normalized weights
                 [obj.x, obj.P] = FusionCenter.information_fusion(X, P, normalized_weights);
-                
-                fprintf('Operational fusion with normalized weights: ');
+                      
+                fprintf('Operational fusion with  weights: ');
                 for j = 1:num_valid
                     local_idx = valid_indices(j);
-                    fprintf('L%d:%.3f ', local_idx, normalized_weights(j));
+                    fprintf('L%d:%.3f ', local_idx, obj.ISF(j));
                 end
                 fprintf('\n');
+
             end
-            
             % Share information with local filters
-            obj.shareInformation(valid_indices);
+            for j = 1:num_valid 
+                local_idx = valid_indices(j);
+                obj.locals(local_idx).P = obj.P;
+                obj.locals(local_idx).x = obj.x;
+            end 
         end
         
-        % --- Information sharing reset ---
-        function shareInformation(obj, valid_indices)
-            % Share global information with local filters using information form
-            global_info = inv(obj.P);
-            global_info_vec = global_info * obj.x;
-            
-            for j = 1:numel(valid_indices)
-                i = valid_indices(j);
-                
-                % Get current local estimate
-                [x_local, P_local] = obj.locals(i).estimate();
-                local_info = inv(P_local);
-                local_info_vec = local_info * x_local;
-                
-                % Calculate information to share based on ISF
-                alpha = obj.ISF(i) / numel(obj.locals);  % Normalize ISF
-                info_to_share = alpha * (global_info - local_info);
-                info_vec_to_share = alpha * (global_info_vec - local_info_vec);
-                
-                % Update local filter with shared information
-                new_info = local_info + info_to_share;
-                new_info_vec = local_info_vec + info_vec_to_share;
-                
-                % Ensure positive definiteness
-                try
-                    obj.locals(i).P = inv(new_info);
-                    obj.locals(i).x = obj.locals(i).P * new_info_vec;
-                catch
-                    % Fallback to simple weighted combination if numerical issues
-                    weight = 0.1; % Small weight for stability
-                    obj.locals(i).x = (1-weight) * x_local + weight * obj.x;
-                    obj.locals(i).P = (1-weight) * P_local + weight * obj.P;
-                end
-            end
-        end
+        % % --- Information sharing reset ---
+        % function shareInformation(obj, valid_indices)
+        %     % Share global information with local filters using information form
+        %     global_info = inv(obj.P);
+        %     global_info_vec = global_info * obj.x;
+        % 
+        %     for j = 1:numel(valid_indices)
+        %         i = valid_indices(j);
+        % 
+        %         % Get current local estimate
+        %         [x_local, P_local] = obj.locals(i).estimate();
+        %         local_info = inv(P_local);
+        %         local_info_vec = local_info * x_local;
+        % 
+        %         % Calculate information to share based on ISF
+        %         % alpha = obj.ISF(i) / numel(obj.locals);  % Normalize ISF
+        %         alpha = obj.ISF(i);
+        %         info_to_share = alpha * (global_info - local_info);
+        %         info_vec_to_share = alpha * (global_info_vec - local_info_vec);
+        % 
+        %         % Update local filter with shared information
+        %         new_info = local_info + info_to_share;
+        %         new_info_vec = local_info_vec + info_vec_to_share;
+        % 
+        %         % Ensure positive definiteness
+        %         try
+        %             obj.locals(i).P = inv(new_info);
+        %             obj.locals(i).x = obj.locals(i).P * new_info_vec;
+        %         catch
+        %             % Fallback to simple weighted combination if numerical issues
+        %             weight = 0.1; % Small weight for stability
+        %             obj.locals(i).x = (1-weight) * x_local + weight * obj.x;
+        %             obj.locals(i).P = (1-weight) * P_local + weight * obj.P;
+        %         end
+        %     end
+        % end
         
         % --- Proper ISF calculation ---
         function finalizeCalibration(obj)
@@ -251,6 +256,8 @@ classdef FederatedKF < handle
             
             obj.calculateISFs();
             
+            % Reset Covariance matrices and Q to correct values
+
             % Switch to operational mode
             obj.mode = 'operational';
             obj.operational_steps = 0;
@@ -261,43 +268,23 @@ classdef FederatedKF < handle
             for i = 1:numel(obj.ISF)
                 fprintf('  Local Filter %d: %.4f\n', i, obj.ISF(i));
             end
-            fprintf('ISF sum: %.4f (should be close to %d)\n', sum(obj.ISF), numel(obj.locals));
+            fprintf('ISF sum: %.4f\n', sum(obj.ISF));
             fprintf('--------------------------------\n');
         end
         
         % --- Correct ISF calculation ---
         function calculateISFs(obj)
-            % Calculate Mean Squared Error (MSE) for each local filter
-            if obj.calibration_steps > 0
-                mse = obj.calibration_errors / obj.calibration_steps;
-            else
-                mse = obj.operational_errors / max(obj.operational_steps, 1);
-            end
-            
-            % Avoid division by zero
-            mse = max(mse, 1e-10);
-            
-            % Calculate normalized weights based on inverse MSE
+            mse = max(obj.calibration_errors / obj.calibration_steps, 1e-10);
             inverse_mse = 1 ./ mse;
-            beta = inverse_mse / sum(inverse_mse);
             
-            % --- ISFs should sum to N, representing information content ---
-            obj.ISF = numel(obj.locals) * beta;
+            % ISF as direct weights (sum = 1)
+            obj.ISF = inverse_mse / sum(inverse_mse);
             
-            % Ensure ISFs are within reasonable bounds
-            obj.ISF = max(obj.ISF, 0.1);  % Minimum ISF
-            obj.ISF = min(obj.ISF, 2 * numel(obj.locals));  % Maximum ISF
+            % Apply bounds
+            obj.ISF = max(obj.ISF, 0.05);  % minimum 5%
+            obj.ISF = obj.ISF / sum(obj.ISF);  % renormalize
         end
-        
-        % % --- Update ISFs during operational phase ---
-        % function updateISFs(obj)
-        %     % Periodically update ISFs based on recent performance
-        %     if mod(obj.operational_steps, 50) == 0  % Update every 50 steps
-        %         obj.calculateISFs();
-        %         fprintf('Updated ISFs at operational step %d\n', obj.operational_steps);
-        %     end
-        % end
-        % 
+
         % --- Operational step without reference filter ---
         function operationalStep(obj, z_cell, z_ref, fuseFlag)
             % Note: z_ref is ignored in operational mode
