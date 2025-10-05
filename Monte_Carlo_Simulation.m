@@ -9,11 +9,10 @@ N = round(T/dt);        % Number of time steps
 
 % Calibration parameters
 calibrationDuration = 1000;  % Number of steps for calibration phase
-referenceWeight = 0.3;       % Weight of reference filter during calibration
+referenceWeight = 0.6;       % Weight of reference filter during calibration
 
 % Fault scenarios to test
 faultScenarios = [
-    0.00, 0.00;     % No faults (baseline)
     0.02, 0.00;     % Light faults in sensor 1
     0.05, 0.02;     % Moderate faults in both sensors
     0.10, 0.05;     % Heavy faults
@@ -307,15 +306,16 @@ for magIdx = 1:length(faultMagnitudes)
         for phaseIdx = 1:length(phases)
             phase = phases{phaseIdx};
             
-            results.(scenarioKey).(['mean_rmse_calibrated_fkf_' phase]) = mean(rmse_calibrated_fkf_full, 1);
-            results.(scenarioKey).(['mean_rmse_standard_fkf_2_' phase]) = mean(rmse_standard_fkf_2_full, 1);
-            results.(scenarioKey).(['mean_rmse_fkf_nfd_' phase]) = mean(rmse_fkf_nfd_full, 1);
-            results.(scenarioKey).(['mean_rmse_ckf_nfd_' phase]) = mean(rmse_ckf_nfd_full, 1);
+            % Use the correct phase-specific variables
+            results.(scenarioKey).(['mean_rmse_calibrated_fkf_' phase]) = mean(eval(['rmse_calibrated_fkf_' phase]), 1);
+            results.(scenarioKey).(['mean_rmse_standard_fkf_2_' phase]) = mean(eval(['rmse_standard_fkf_2_' phase]), 1);
+            results.(scenarioKey).(['mean_rmse_fkf_nfd_' phase]) = mean(eval(['rmse_fkf_nfd_' phase]), 1);
+            results.(scenarioKey).(['mean_rmse_ckf_nfd_' phase]) = mean(eval(['rmse_ckf_nfd_' phase]), 1);
             
-            results.(scenarioKey).(['std_rmse_calibrated_fkf_' phase]) = std(rmse_calibrated_fkf_full, 1);
-            results.(scenarioKey).(['std_rmse_standard_fkf_2_' phase]) = std(rmse_standard_fkf_2_full, 1);
-            results.(scenarioKey).(['std_rmse_fkf_nfd_' phase]) = std(rmse_fkf_nfd_full, 1);
-            results.(scenarioKey).(['std_rmse_ckf_nfd_' phase]) = std(rmse_ckf_nfd_full, 1);
+            results.(scenarioKey).(['std_rmse_calibrated_fkf_' phase]) = std(eval(['rmse_calibrated_fkf_' phase]), 1);
+            results.(scenarioKey).(['std_rmse_standard_fkf_2_' phase]) = std(eval(['rmse_standard_fkf_2_' phase]), 1);
+            results.(scenarioKey).(['std_rmse_fkf_nfd_' phase]) = std(eval(['rmse_fkf_nfd_' phase]), 1);
+            results.(scenarioKey).(['std_rmse_ckf_nfd_' phase]) = std(eval(['rmse_ckf_nfd_' phase]), 1);
         end
 
         % ISF statistics
@@ -430,7 +430,7 @@ createPhaseComparisonPlots(results, faultMagnitudes, calibrationDuration, dt);
 %% Plotting function for three phases
 function createPhaseComparisonPlots(results, faultMagnitudes, calibrationDuration, dt)
     numMags = length(faultMagnitudes);
-    numFaultScenarios = 5;
+    numFaultScenarios = 4;
     
     phases = {'full', 'calib', 'oper'};
     phaseTitles = {'Full Simulation (Calibration + Operation)', ...
@@ -463,7 +463,7 @@ function createPhaseComparisonPlots(results, faultMagnitudes, calibrationDuratio
                     end
                 end
 
-                subplot(2, 5, (sensorIdx-1)*5 + scenarioIdx);
+                subplot(2, 4, (sensorIdx-1)*4 + scenarioIdx);
 
 plot(faultMagnitudes, mean_rmse_calibrated, '-o', 'LineWidth', 2.5, 'MarkerSize', 7, 'DisplayName', 'Calibrated FKF');
                 hold on;

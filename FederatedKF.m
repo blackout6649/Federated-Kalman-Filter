@@ -66,7 +66,8 @@ classdef FederatedKF < handle
             obj.operational_steps = 0;
             
             % --- Initialize ISF ---
-            obj.ISF = zeros(1, num_locals);
+            obj.ISF = ones(1, num_locals + 1);  
+
  
             
             fprintf('--- FKF "%s" initialized in CALIBRATION mode for %d steps. ---\n', obj.name, obj.calibration_duration);
@@ -137,8 +138,6 @@ classdef FederatedKF < handle
         
         % --- Filter fusion ---
         function fuseFilters(obj)
-            fprintf('Fusing filters...\n');
-            
             valid_indices = find(obj.fault_flags == 1);
             if isempty(valid_indices)
                 warning('All local filters have faults - cannot perform fusion');
@@ -148,107 +147,56 @@ classdef FederatedKF < handle
             num_valid = numel(valid_indices);
             
             if strcmp(obj.mode, 'calibration')
-                % --- CALIBRATION MODE: Include reference filter ---
-                X = cell(1, num_valid + 1); 
-                P = cell(1, num_valid + 1);
-                ISF_valid = zeros(1, num_valid + 1);
+                % --- CALIBRATION: Reference + Local filters ---
+                num_filters = num_valid + 1;
+                X = cell(1, num_filters);
+                P = cell(1, num_filters);
+                weights = zeros(1, num_filters);
                 
-                % Add reference filter to the fusion set
+                % Add reference filter
                 [X{1}, P{1}] = obj.reference_filter.estimate();
-                ISF_valid(1) = obj.reference_weight; 
+                weights(1) = obj.reference_weight;  
                 
-                % Add local filters to the fusion set
+                % Add local filters with equal remaining weight
+                remaining_weight = 1 - obj.reference_weight;  
                 for j = 1:num_valid
                     local_idx = valid_indices(j);
                     [X{j+1}, P{j+1}] = obj.locals(local_idx).estimate();
-                    ISF_valid(j+1) = obj.ISF(local_idx);
+                    weights(j+1) = remaining_weight / num_valid; 
                 end
                 
-                % Normalize the local weights so they sum to (1 - reference_weight)
-                sum_of_other_ISF = sum(ISF_valid(2:end));
-                if sum_of_other_ISF > 1e-6
-                    ISF_valid(2:end) = ISF_valid(2:end) * (1 - obj.reference_weight) / sum_of_other_ISF;
-                else
-                    ISF_valid(2:end) = (1 - obj.reference_weight) / num_valid;
-                end
+                for j = 1:numel(weights)
+                    obj.ISF(j) = weights(j);
+                end 
+
+                [obj.x, obj.P] = FusionCenter.fuse(X, P);
                 
-                % Perform fusion using the weights
-                [obj.x, obj.P] = FusionCenter.information_fusion(X, P, ISF_valid);
- 
             else
-                % --- OPERATIONAL MODE: Local filters only with normalized weights ---
+                % --- OPERATIONAL: Local filters only with learned ISFs ---
                 X = cell(1, num_valid);
                 P = cell(1, num_valid);
                 
-                % Get valid local filters and their ISFs
-                total_ISF = 0;
                 for j = 1:num_valid
                     local_idx = valid_indices(j);
                     [X{j}, P{j}] = obj.locals(local_idx).estimate();
-                    total_ISF = total_ISF + obj.ISF(local_idx);
                 end
                 
-                % Normalize weights to sum to 1
-                for j = 1:num_valid
-                    local_idx = valid_indices(j);
-                    normalized_weights(j) = obj.ISF(local_idx) / total_ISF;
-                end
-                
-                % Perform fusion with normalized weights
-                [obj.x, obj.P] = FusionCenter.information_fusion(X, P, normalized_weights);
-                      
-                fprintf('Operational fusion with  weights: ');
-                for j = 1:num_valid
-                    local_idx = valid_indices(j);
-                    fprintf('L%d:%.3f ', local_idx, obj.ISF(j));
-                end
-                fprintf('\n');
-
+                [obj.x, obj.P] = FusionCenter.fuse(X, P);
             end
-            % Share information with local filters
-            for j = 1:num_valid 
+            
+            % Information sharing
+            for j = 1:num_valid
                 local_idx = valid_indices(j);
-                obj.locals(local_idx).P = obj.P;
                 obj.locals(local_idx).x = obj.x;
+                obj.locals(local_idx).P = obj.P / obj.ISF(local_idx);
+            end
+
+            if strcmp(obj.mode, 'calibration')
+                obj.reference_filter.x = obj.x;
+                obj.reference_filter.P = obj.P ./ obj.ISF(end);
             end 
         end
-        
-        % % --- Information sharing reset ---
-        % function shareInformation(obj, valid_indices)
-        %     % Share global information with local filters using information form
-        %     global_info = inv(obj.P);
-        %     global_info_vec = global_info * obj.x;
-        % 
-        %     for j = 1:numel(valid_indices)
-        %         i = valid_indices(j);
-        % 
-        %         % Get current local estimate
-        %         [x_local, P_local] = obj.locals(i).estimate();
-        %         local_info = inv(P_local);
-        %         local_info_vec = local_info * x_local;
-        % 
-        %         % Calculate information to share based on ISF
-        %         % alpha = obj.ISF(i) / numel(obj.locals);  % Normalize ISF
-        %         alpha = obj.ISF(i);
-        %         info_to_share = alpha * (global_info - local_info);
-        %         info_vec_to_share = alpha * (global_info_vec - local_info_vec);
-        % 
-        %         % Update local filter with shared information
-        %         new_info = local_info + info_to_share;
-        %         new_info_vec = local_info_vec + info_vec_to_share;
-        % 
-        %         % Ensure positive definiteness
-        %         try
-        %             obj.locals(i).P = inv(new_info);
-        %             obj.locals(i).x = obj.locals(i).P * new_info_vec;
-        %         catch
-        %             % Fallback to simple weighted combination if numerical issues
-        %             weight = 0.1; % Small weight for stability
-        %             obj.locals(i).x = (1-weight) * x_local + weight * obj.x;
-        %             obj.locals(i).P = (1-weight) * P_local + weight * obj.P;
-        %         end
-        %     end
-        % end
+ 
         
         % --- Proper ISF calculation ---
         function finalizeCalibration(obj)
@@ -257,7 +205,11 @@ classdef FederatedKF < handle
             obj.calculateISFs();
             
             % Reset Covariance matrices and Q to correct values
+            for i = 1:numel(obj.locals)
+                obj.locals(i).model.Q = obj.locals(i).model.Q_old ./ obj.ISF(i);
+                obj.locals(i).P = obj.locals(i).P_old ./ obj.ISF(i);
 
+            end 
             % Switch to operational mode
             obj.mode = 'operational';
             obj.operational_steps = 0;
@@ -270,19 +222,22 @@ classdef FederatedKF < handle
             end
             fprintf('ISF sum: %.4f\n', sum(obj.ISF));
             fprintf('--------------------------------\n');
+            
         end
         
         % --- Correct ISF calculation ---
         function calculateISFs(obj)
+            % Calculate mean squared errors
             mse = max(obj.calibration_errors / obj.calibration_steps, 1e-10);
+            
+            % ISF is proportional to inverse MSE (better sensors get higher ISF)
             inverse_mse = 1 ./ mse;
             
-            % ISF as direct weights (sum = 1)
+            % Normalize so sum(ISF) = 1
             obj.ISF = inverse_mse / sum(inverse_mse);
             
-            % Apply bounds
-            obj.ISF = max(obj.ISF, 0.05);  % minimum 5%
-            obj.ISF = obj.ISF / sum(obj.ISF);  % renormalize
+            fprintf('Learned ISFs: %s\n', mat2str(obj.ISF, 3));
+            fprintf('Constraint check: sum(ISF) = %.6f (target: 1.0)\n', sum(obj.ISF));
         end
 
         % --- Operational step without reference filter ---
@@ -326,10 +281,6 @@ classdef FederatedKF < handle
                     obj.locals(i).x = obj.x;
                 case 2
                     fprintf('Fault detected in local filter %d - skipping update\n', i);
-                case 3
-                    fprintf('Fault detected in local filter %d - assigning last global value and increasing covariance\n', i);
-                    obj.locals(i).x = obj.x;
-                    obj.locals(i).P = obj.P * 2;  % Less aggressive covariance inflation
             end
         end
         

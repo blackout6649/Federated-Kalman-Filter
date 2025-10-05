@@ -4,6 +4,7 @@ classdef MotionModel < handle
        F     % State Transition matrix
        G     % Process noise distribution matrix
        Q     % Process noise covariance matrix
+       Q_old % Save original noise covariance matrix for scaling
        weight % Scalar weight value for FKF augmentation
    end 
     
@@ -17,6 +18,7 @@ classdef MotionModel < handle
            newObj.F = obj.F;
            newObj.G = obj.G;
            newObj.Q = obj.Q * weight;
+           newObj.Q_old = obj.Q;
        end 
        function [xk1, Pk1] = predict(obj, x, P)
            xk1 = obj.F * x; % Time propogation of state estimation

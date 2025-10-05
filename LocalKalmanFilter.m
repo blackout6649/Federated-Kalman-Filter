@@ -5,6 +5,7 @@ classdef LocalKalmanFilter < handle
         sensor % LinearSensor
         x     % Current estimate
         P     % Current covariance
+        P_old % original covariance
         lastInnov
         lastS
         name
@@ -12,7 +13,7 @@ classdef LocalKalmanFilter < handle
     methods 
         function obj = LocalKalmanFilter(model, sensor, x0, P0, weight, name)
             obj.model = model.FKFaug(weight); obj.sensor = sensor;
-            obj.x = x0; obj.P = P0 * weight;
+            obj.x = x0; obj.P = P0 * weight; obj.P_old = P0;
             if nargin < 5, name = "LocalKF"; end
             obj.name = name;
         end 
