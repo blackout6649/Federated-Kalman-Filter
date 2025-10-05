@@ -1,0 +1,637 @@
+# General Information
+
+* sensor Interval = \[1 1]
+* fusion Interval = 10
+
+# Monte Caro Results (Output)
+
+=== MONTE CARLO SIMULATION RESULTS ===
+
+Number of runs per scenario: 10
+
+Simulation time: 600.0 s, Time step: 0.10 s
+
+
+
+--- Fault Magnitude: 25, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.18 m
+
+  FKF w/ FD (Scenario 2):  1.16 m
+
+  FKF w/ FD (Scenario 3):  1.19 m
+
+  FKF Traditional:         1.12 m
+
+  CKF Traditional:         0.76 m
+
+
+
+--- Fault Magnitude: 25, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.19 m
+
+  FKF w/ FD (Scenario 2):  1.15 m
+
+  FKF w/ FD (Scenario 3):  1.20 m
+
+  FKF Traditional:         1.14 m
+
+  CKF Traditional:         0.83 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.38, 0.00]
+
+  Precision: \[0.18, 0.00]
+
+
+
+--- Fault Magnitude: 25, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.16 m
+
+  FKF w/ FD (Scenario 2):  1.08 m
+
+  FKF w/ FD (Scenario 3):  1.16 m
+
+  FKF Traditional:         1.07 m
+
+  CKF Traditional:         0.88 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.47, 0.10]
+
+  Precision: \[0.40, 0.06]
+
+
+
+--- Fault Magnitude: 25, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  2.92 m
+
+  FKF w/ FD (Scenario 2):  1.27 m
+
+  FKF w/ FD (Scenario 3):  2.92 m
+
+  FKF Traditional:         1.26 m
+
+  CKF Traditional:         0.94 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.54, 0.15]
+
+  Precision: \[0.57, 0.21]
+
+
+
+--- Fault Magnitude: 25, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  25.80 m
+
+  FKF w/ FD (Scenario 2):  1.41 m
+
+  FKF w/ FD (Scenario 3):  25.74 m
+
+  FKF Traditional:         1.42 m
+
+  CKF Traditional:         1.04 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.63, 0.21]
+
+  Precision: \[0.63, 0.42]
+
+
+
+--- Fault Magnitude: 75, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.16 m
+
+  FKF w/ FD (Scenario 2):  1.13 m
+
+  FKF w/ FD (Scenario 3):  1.17 m
+
+  FKF Traditional:         1.10 m
+
+  CKF Traditional:         0.76 m
+
+
+
+--- Fault Magnitude: 75, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.22 m
+
+  FKF w/ FD (Scenario 2):  1.19 m
+
+  FKF w/ FD (Scenario 3):  1.23 m
+
+  FKF Traditional:         1.27 m
+
+  CKF Traditional:         1.02 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.93, 0.00]
+
+  Precision: \[0.11, 0.00]
+
+
+
+--- Fault Magnitude: 75, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.56 m
+
+  FKF w/ FD (Scenario 2):  1.48 m
+
+  FKF w/ FD (Scenario 3):  1.59 m
+
+  FKF Traditional:         1.62 m
+
+  CKF Traditional:         1.38 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.94, 0.83]
+
+  Precision: \[0.14, 0.16]
+
+
+
+--- Fault Magnitude: 75, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.94 m
+
+  FKF w/ FD (Scenario 2):  1.85 m
+
+  FKF w/ FD (Scenario 3):  2.03 m
+
+  FKF Traditional:         1.99 m
+
+  CKF Traditional:         1.83 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.95, 0.85]
+
+  Precision: \[0.18, 0.23]
+
+
+
+--- Fault Magnitude: 75, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  34.40 m
+
+  FKF w/ FD (Scenario 2):  2.46 m
+
+  FKF w/ FD (Scenario 3):  14.70 m
+
+  FKF Traditional:         2.37 m
+
+  CKF Traditional:         2.18 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.97, 0.90]
+
+  Precision: \[0.21, 0.24]
+
+
+
+--- Fault Magnitude: 125, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.15 m
+
+  FKF w/ FD (Scenario 2):  1.13 m
+
+  FKF w/ FD (Scenario 3):  1.15 m
+
+  FKF Traditional:         1.10 m
+
+  CKF Traditional:         0.77 m
+
+
+
+--- Fault Magnitude: 125, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.24 m
+
+  FKF w/ FD (Scenario 2):  1.23 m
+
+  FKF w/ FD (Scenario 3):  1.26 m
+
+  FKF Traditional:         1.57 m
+
+  CKF Traditional:         1.36 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.97, 0.00]
+
+  Precision: \[0.10, 0.00]
+
+
+
+--- Fault Magnitude: 125, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.54 m
+
+  FKF w/ FD (Scenario 2):  1.52 m
+
+  FKF w/ FD (Scenario 3):  1.58 m
+
+  FKF Traditional:         2.09 m
+
+  CKF Traditional:         1.99 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.98, 0.95]
+
+  Precision: \[0.12, 0.11]
+
+
+
+--- Fault Magnitude: 125, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  2.15 m
+
+  FKF w/ FD (Scenario 2):  2.08 m
+
+  FKF w/ FD (Scenario 3):  2.24 m
+
+  FKF Traditional:         2.85 m
+
+  CKF Traditional:         2.79 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.98, 0.95]
+
+  Precision: \[0.16, 0.14]
+
+
+
+--- Fault Magnitude: 125, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  67.17 m
+
+  FKF w/ FD (Scenario 2):  3.07 m
+
+  FKF w/ FD (Scenario 3):  125.13 m
+
+  FKF Traditional:         3.52 m
+
+  CKF Traditional:         3.44 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.97]
+
+  Precision: \[0.19, 0.16]
+
+
+
+--- Fault Magnitude: 175, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.25 m
+
+  FKF w/ FD (Scenario 2):  1.24 m
+
+  FKF w/ FD (Scenario 3):  1.26 m
+
+  FKF Traditional:         1.21 m
+
+  CKF Traditional:         0.78 m
+
+
+
+--- Fault Magnitude: 175, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.21 m
+
+  FKF w/ FD (Scenario 2):  1.20 m
+
+  FKF w/ FD (Scenario 3):  1.23 m
+
+  FKF Traditional:         1.94 m
+
+  CKF Traditional:         1.81 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.00]
+
+  Precision: \[0.10, 0.00]
+
+
+
+--- Fault Magnitude: 175, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  9.54 m
+
+  FKF w/ FD (Scenario 2):  1.78 m
+
+  FKF w/ FD (Scenario 3):  9.61 m
+
+  FKF Traditional:         3.00 m
+
+  CKF Traditional:         2.83 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.97]
+
+  Precision: \[0.12, 0.10]
+
+
+
+--- Fault Magnitude: 175, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  63.82 m
+
+  FKF w/ FD (Scenario 2):  2.29 m
+
+  FKF w/ FD (Scenario 3):  63.93 m
+
+  FKF Traditional:         3.93 m
+
+  CKF Traditional:         3.90 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.97]
+
+  Precision: \[0.15, 0.11]
+
+
+
+--- Fault Magnitude: 175, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  73.12 m
+
+  FKF w/ FD (Scenario 2):  3.59 m
+
+  FKF w/ FD (Scenario 3):  100.94 m
+
+  FKF Traditional:         4.76 m
+
+  CKF Traditional:         4.77 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.99]
+
+  Precision: \[0.18, 0.15]
+
+
+
+--- Fault Magnitude: 225, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.21 m
+
+  FKF w/ FD (Scenario 2):  1.19 m
+
+  FKF w/ FD (Scenario 3):  1.23 m
+
+  FKF Traditional:         1.16 m
+
+  CKF Traditional:         0.77 m
+
+
+
+--- Fault Magnitude: 225, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.28 m
+
+  FKF w/ FD (Scenario 2):  1.26 m
+
+  FKF w/ FD (Scenario 3):  1.29 m
+
+  FKF Traditional:         2.36 m
+
+  CKF Traditional:         2.20 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.00]
+
+  Precision: \[0.09, 0.00]
+
+
+
+--- Fault Magnitude: 225, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.72 m
+
+  FKF w/ FD (Scenario 2):  1.68 m
+
+  FKF w/ FD (Scenario 3):  1.77 m
+
+  FKF Traditional:         3.53 m
+
+  CKF Traditional:         3.45 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.98]
+
+  Precision: \[0.12, 0.10]
+
+
+
+--- Fault Magnitude: 225, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  183.09 m
+
+  FKF w/ FD (Scenario 2):  2.78 m
+
+  FKF w/ FD (Scenario 3):  190.11 m
+
+  FKF Traditional:         5.03 m
+
+  CKF Traditional:         4.93 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[1.00, 0.99]
+
+  Precision: \[0.13, 0.10]
+
+
+
+--- Fault Magnitude: 225, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  179.10 m
+
+  FKF w/ FD (Scenario 2):  4.15 m
+
+  FKF w/ FD (Scenario 3):  182.47 m
+
+  FKF Traditional:         6.12 m
+
+  CKF Traditional:         6.08 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[1.00, 0.99]
+
+  Precision: \[0.17, 0.14]
+
+
+
+--- Fault Magnitude: 275, Fault Probabilities \[0.00, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.13 m
+
+  FKF w/ FD (Scenario 2):  1.11 m
+
+  FKF w/ FD (Scenario 3):  1.14 m
+
+  FKF Traditional:         1.08 m
+
+  CKF Traditional:         0.76 m
+
+
+
+--- Fault Magnitude: 275, Fault Probabilities \[0.02, 0.00] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.26 m
+
+  FKF w/ FD (Scenario 2):  1.25 m
+
+  FKF w/ FD (Scenario 3):  1.27 m
+
+  FKF Traditional:         2.76 m
+
+  CKF Traditional:         2.64 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[0.99, 0.00]
+
+  Precision: \[0.09, 0.00]
+
+
+
+--- Fault Magnitude: 275, Fault Probabilities \[0.05, 0.02] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  1.57 m
+
+  FKF w/ FD (Scenario 2):  1.56 m
+
+  FKF w/ FD (Scenario 3):  1.63 m
+
+  FKF Traditional:         4.24 m
+
+  CKF Traditional:         4.23 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[1.00, 0.99]
+
+  Precision: \[0.12, 0.10]
+
+
+
+--- Fault Magnitude: 275, Fault Probabilities \[0.10, 0.05] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  2.33 m
+
+  FKF w/ FD (Scenario 2):  2.26 m
+
+  FKF w/ FD (Scenario 3):  2.44 m
+
+  FKF Traditional:         5.95 m
+
+  CKF Traditional:         5.94 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[1.00, 0.99]
+
+  Precision: \[0.15, 0.12]
+
+
+
+--- Fault Magnitude: 275, Fault Probabilities \[0.15, 0.10] ---
+
+RMSE Results (mean of x, y):
+
+  FKF w/ FD (Scenario 1):  66.47 m
+
+  FKF w/ FD (Scenario 2):  3.60 m
+
+  FKF w/ FD (Scenario 3):  69.94 m
+
+  FKF Traditional:         7.59 m
+
+  CKF Traditional:         7.58 m
+
+Fault Detection Performance (Sensor 1/Sensor 2):
+
+  Recall:    \[1.00, 0.99]
+
+  Precision: \[0.17, 0.14]
+
